@@ -262,6 +262,44 @@ code{color:var(--a2);font-size:10px;}
 .login-btn:active{transform:scale(.98);}
 .login-error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:7px;padding:9px 12px;font-size:11px;color:#f87171;margin-bottom:14px;display:none;}
 .login-footer{margin-top:20px;font-size:11px;color:var(--t3);text-align:center;}
+
+/* ── PRINT / PDF EXPORT ─────────────────────────────────────────── */
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  body{height:auto!important;overflow:visible!important;background:#fff!important;color:#000!important;font-size:11pt!important;display:block!important;}
+  .sb,.tb,#mobile-nav,#sb-overlay,.pb,.hbg,.mbd,button,.btn,.pbb,
+  #topbar-actions,.sr,.tw-scroll-hint{display:none!important;}
+  .main{margin:0!important;display:block!important;}
+  .ct{overflow:visible!important;height:auto!important;padding:0!important;display:block!important;}
+  .page{display:none!important;}
+  .page.printing{display:block!important;}
+  .card{background:#fff!important;border:1px solid #ddd!important;page-break-inside:avoid;margin-bottom:12pt;}
+  .cg,.cg3{grid-template-columns:1fr 1fr!important;}
+  canvas{max-width:100%!important;height:auto!important;}
+  table{width:100%!important;font-size:9pt!important;}
+  th,td{color:#000!important;border-color:#ccc!important;padding:4pt 6pt!important;}
+  th{background:#f0f0f0!important;font-weight:700!important;}
+  .bpill{border:1px solid #999!important;color:#000!important;background:#eee!important;}
+  .g-bar{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  .print-header{display:block!important;}
+  .no-print{display:none!important;}
+  h1,h2,h3{color:#000!important;}
+  .ct2{color:#555!important;}
+  a{color:#000!important;}
+  .tw{overflow:visible!important;}
+}
+/* Print report header — hidden on screen, shown on print */
+.print-header{
+  display:none;
+  padding:0 0 16pt;
+  margin-bottom:16pt;
+  border-bottom:3pt solid #f59e0b;
+  page-break-after:avoid;
+}
+.print-header .ph-logo{height:40pt;width:auto;margin-bottom:8pt;display:block;}
+.print-header .ph-title{font-size:18pt;font-weight:900;color:#1e3a8a;margin-bottom:3pt;}
+.print-header .ph-sub{font-size:10pt;color:#475569;margin-bottom:2pt;}
+.print-header .ph-date{font-size:9pt;color:#94a3b8;margin-top:6pt;padding-top:6pt;border-top:1px solid #e2e8f0;}
 </style>
 </head>
 <body>
@@ -273,7 +311,7 @@ code{color:var(--a2);font-size:10px;}
 <div id="login-screen">
   <div class="login-card">
     <div style="margin-bottom:24px;">
-      <img src="data:image/png;base64,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" alt="SIGRAL S.A." style="height:56px;width:auto;object-fit:contain;display:block;margin:0 auto;">
+      <img id="logo-im" src="data:image/png;base64,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" alt="SIGRAL S.A." style="height:56px;width:auto;object-fit:contain;display:block;margin:0 auto;">
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:2.5px;color:var(--t3);margin-top:8px;text-align:center;">Sistema de Gestión RRHH &amp; Proyectos</div>
     </div>
     <div class="login-title">Bienvenido</div>
@@ -915,14 +953,28 @@ function goPage(id,el){
   document.getElementById('main-scroll').scrollTop=0;
   const titles={dashboard:'Dashboard',alertas:'Alertas de Contratos',empleados:'Empleados',importar:'Importar / Exportar',fichaproyectos:'Ficha de Proyectos',programacion:'Programación de Proyectos',asignacion:'Asignación de Recursos',maestras:'Tablas Maestras',usuarios:'Gestión de Usuarios'};
   document.getElementById('page-title').textContent=titles[id]||id;
+  const XB='<button class="btn bs bsm" style="gap:4px;" ';  // export button base
   const acts={
-    dashboard:isAdmin()?`<button class="btn bp" onclick="openEmpModal(null)">+ Empleado</button>
-      <button class="btn bpu bsm" onclick="openProyModal(null)" style="margin-left:4px;">+ Proyecto</button>`:'',
-    empleados:isAdmin()?`<button class="btn bp" onclick="openEmpModal(null)">+ Nuevo Empleado</button>`:'',
-    fichaproyectos:isAdmin()?`<button class="btn bpu" onclick="openProyModal(null)">+ Nuevo Proyecto</button>`:'',
-    asignacion:isAdmin()?`<button class="btn bp" onclick="openAsigModal(null)">+ Nueva Asignación</button>`:'',
+    dashboard:(isAdmin()?`${XB}onclick="exportarDashboard()">↓ Excel Ejecutivo</button> `:'')
+      +`${XB}onclick="exportPDF('dashboard')">📄 PDF Ejecutivo</button> `
+      +(isAdmin()?`<button class="btn bp" onclick="openEmpModal(null)">+ Empleado</button>
+      <button class="btn bpu bsm" onclick="openProyModal(null)">+ Proyecto</button>`:''),
+    empleados:`${XB}onclick="exportarExcel('todos')">↓ Excel</button> `
+      +`${XB}onclick="exportarExcel('filtrado')">↓ Excel filtrado</button> `
+      +`${XB}onclick="exportPDF('empleados')">📄 PDF</button> `
+      +(isAdmin()?`<button class="btn bp" onclick="openEmpModal(null)">+ Nuevo Empleado</button>`:''),
+    fichaproyectos:`${XB}onclick="exportarProyectos()">↓ Excel</button> `
+      +`${XB}onclick="exportPDF('fichaproyectos')">📄 PDF</button> `
+      +(isAdmin()?`<button class="btn bpu" onclick="openProyModal(null)">+ Nuevo Proyecto</button>`:''),
+    programacion:`${XB}onclick="exportarProyectos()">↓ Excel</button> `
+      +`${XB}onclick="exportPDF('programacion')">📄 PDF</button>`,
+    asignacion:`${XB}onclick="exportarAsignaciones()">↓ Excel</button> `
+      +`${XB}onclick="exportPDF('asignacion')">📄 PDF</button> `
+      +(isAdmin()?`<button class="btn bp" onclick="openAsigModal(null)">+ Nueva Asignación</button>`:''),
+    alertas:`${XB}onclick="exportarExcel('alertas')">↓ Excel</button> `
+      +`${XB}onclick="exportPDF('alertas')">📄 PDF</button>`,
     usuarios:isAdmin()?`<button class="btn bp" onclick="openUsrModal(null)">+ Nuevo Usuario</button>`:'',
-    alertas:'',importar:'',programacion:'',maestras:'',
+    importar:'',maestras:'',
   };
   document.getElementById('topbar-actions').innerHTML=acts[id]||'';
   if(id==='dashboard')renderDashboard();
@@ -2263,10 +2315,110 @@ function showIM(msg,cls){
   if(el){el.innerHTML=`<div class="alt ${cls}">${msg}</div>`;setTimeout(()=>{if(el)el.innerHTML='';},6000);}
 }
 
+// ─── EXPORTAR A PDF ───────────────────────────────────────────────────────────
+const PAGE_INFO = {
+  dashboard:    {title:'Informe Ejecutivo SIGRAL S.A.',   sub:'Dashboard · Resumen General de RRHH & Proyectos'},
+  empleados:    {title:'Reporte de Empleados',             sub:'Listado de personal · SIGRAL S.A.'},
+  fichaproyectos:{title:'Reporte de Proyectos',           sub:'Cartera de proyectos · SIGRAL S.A.'},
+  programacion: {title:'Cronograma de Proyectos',          sub:'Programación y avance de obras · SIGRAL S.A.'},
+  asignacion:   {title:'Reporte de Asignación de Recursos',sub:'Personal asignado por proyecto · SIGRAL S.A.'},
+  alertas:      {title:'Alertas de Contratos RRHH',        sub:'Contratos vencidos y por vencer · SIGRAL S.A.'},
+};
+
+function exportPDF(pageId){
+  let pg=document.getElementById('page-'+pageId);
+  if(!pg){alert('Sección no encontrada.');return;}
+  let pi=PAGE_INFO[pageId]||{title:pageId,sub:''};
+
+  // Remove previous print header
+  let old=document.getElementById('_ph_'+pageId);
+  if(old)old.remove();
+
+  // Get logo
+  let logoEl=document.getElementById('logo-im');
+  let logoSrc=(logoEl&&logoEl.src&&!logoEl.src.endsWith('html'))?logoEl.src:'';
+
+  // Format date
+  let now=new Date();
+  let fechaStr=now.toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  let horaStr=now.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+  let usr=DB.currentUser?.name||'SIGRAL Admin';
+
+  // Build print header
+  let hdr=document.createElement('div');
+  hdr.id='_ph_'+pageId;
+  hdr.className='print-header';
+  hdr.innerHTML=`
+    ${logoSrc?`<img src="${logoSrc}" class="ph-logo" alt="SIGRAL">`
+      :'<div style="font-size:20pt;font-weight:900;color:#1e3a8a;margin-bottom:6pt;display:none;" class="print-header">SIGRAL S.A.</div>'}
+    <div class="ph-title">${pi.title}</div>
+    <div class="ph-sub">${pi.sub}</div>
+    <div class="ph-date">Generado: ${fechaStr} ${horaStr} · Usuario: ${usr} · Sistema SIGRAL RRHH & Proyectos</div>`;
+  pg.insertBefore(hdr,pg.firstChild);
+
+  // Mark page for print visibility
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('printing'));
+  pg.classList.add('printing');
+
+  // Trigger print dialog
+  window.print();
+
+  // Cleanup after print dialog closes (setTimeout gives time for dialog)
+  setTimeout(()=>{
+    hdr.remove();
+    pg.classList.remove('printing');
+  },1500);
+}
+
+// Export dashboard summary to Excel
+function exportarDashboard(){
+  let today=fd(new Date());
+  let wb2=XLSX.utils.book_new();
+  // Sheet 1: KPI Summary
+  let kpiData=[
+    ['SIGRAL S.A. — Informe Ejecutivo','','',''],
+    ['Generado:',today,'Usuario:',DB.currentUser?.name||''],
+    ['','','',''],
+    ['INDICADORES CLAVE','','',''],
+    ['Total Empleados Activos',DB.employees.filter(e=>e.estado==='Activo').length,'',''],
+    ['Alertas de Contratos',DB.employees.filter(e=>e.estado==='Activo'&&alerta(e)).length,'',''],
+    ['Proyectos En Curso',DB.projects.filter(p=>p.estado==='En curso').length,'',''],
+    ['Proyectos en Formulación/Licitación',DB.projects.filter(p=>['Formulación','Licitación'].includes(p.estado)).length,'',''],
+    ['Asignaciones Activas',DB.assignments.filter(a=>dv(a.fecha_fin)>=0).length,'',''],
+    ['','','',''],
+    ['EMPLEADOS POR PROFESIÓN','','',''],
+    ['Profesión','Cantidad','',''],
+  ];
+  let profs={};
+  DB.employees.filter(e=>e.estado==='Activo').forEach(e=>{let p=e.profesion||'Sin especificar';profs[p]=(profs[p]||0)+1;});
+  Object.entries(profs).sort((a,b)=>b[1]-a[1]).forEach(([p,n])=>kpiData.push([p,n,'','']));
+  kpiData.push(['','','',''],['PROYECTOS POR ESTADO','','',''],['Estado','Cantidad','','']);
+  let estats={};DB.projects.forEach(p=>{estats[p.estado]=(estats[p.estado]||0)+1;});
+  Object.entries(estats).forEach(([e,n])=>kpiData.push([e,n,'','']));
+
+  let ws1=XLSX.utils.aoa_to_sheet(kpiData);
+  ws1['!cols']=[{wch:40},{wch:15},{wch:20},{wch:20}];
+  XLSX.utils.book_append_sheet(wb2,ws1,'Resumen Ejecutivo');
+
+  // Sheet 2: Empleados activos
+  let hEmp=['Código','Apellidos','Nombres','Profesión','Cargo','Área','Estado','Fin Contrato','Alerta'];
+  let rEmp=DB.employees.filter(e=>e.estado==='Activo').map(e=>{let al2=alerta(e);return[e.codigo,e.apellidos,e.nombres,e.profesion||'',e.cargo||'',e.area||'',e.estado,e.fecha_fin_contrato||'Indefinido',al2?{vencido:'VENCIDO',critico:'CRÍTICO',urgente:'URGENTE',proximo:'PRÓXIMO'}[al2]:'OK'];});
+  let ws2=XLSX.utils.aoa_to_sheet([hEmp,...rEmp]);ws2['!cols']=hEmp.map(()=>({wch:18}));
+  XLSX.utils.book_append_sheet(wb2,ws2,'Empleados Activos');
+
+  // Sheet 3: Proyectos activos
+  let hProy=['Código','Proyecto','Cliente','Sector','Estado','Inicio','Fin','Monto','Recursos Req.','Asignados'];
+  let rProy=DB.projects.filter(p=>!['Concluido','Suspendido','FINALIZADO','Finalizado'].includes(p.estado)).map(p=>{let asig=proyAsigs(p.id).filter(a=>dv(a.fecha_fin)>=0).length;return[p.codigo,p.nombre,p.cliente||'',p.sector||'',p.estado,p.fecha_inicio||'',p.fecha_fin||'',p.monto||'',p.recursos_req||0,asig];});
+  let ws3=XLSX.utils.aoa_to_sheet([hProy,...rProy]);ws3['!cols']=hProy.map(()=>({wch:18}));
+  XLSX.utils.book_append_sheet(wb2,ws3,'Proyectos Activos');
+
+  XLSX.writeFile(wb2,'SIGRAL_Informe_Ejecutivo_'+today+'.xlsx');
+}
+
 function exportarExcel(modo){
   let data,fn,today=fd(new Date());
   if(modo==='alertas'){data=DB.employees.filter(e=>e.estado==='Activo'&&alerta(e)).sort((a,b)=>(dv(a.fecha_fin_contrato)||9999)-(dv(b.fecha_fin_contrato)||9999));fn='SIGRAL_alertas_'+today+'.xlsx';}
-  else if(modo==='filtrado'){data=filteredEmps;fn='SIGRAL_filtrado_'+today+'.xlsx';}
+  else if(modo==='filtrado'){data=filteredEmps&&filteredEmps.length?filteredEmps:DB.employees.filter(e=>e.estado==='Activo');fn='SIGRAL_filtrado_'+today+'.xlsx';}
   else{data=DB.employees;fn='SIGRAL_empleados_'+today+'.xlsx';}
   if(!data.length){alert('No hay datos para exportar.');return;}
   let h=['Codigo','Nombres','Apellidos','DNI','Email','Telefono','Profesion','Especialidad','Cargo','Area','Tipo Contrato','Fecha Ingreso','Fin Contrato','Salario','Estado','Antiguedad (anos)','Dias para Vencer','Alerta','Observaciones'];

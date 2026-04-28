@@ -69,6 +69,12 @@ body.sb-open .hbg span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
   .sr .fc{font-size:12px;padding:6px 10px;}
   /* Tables: hide less important columns on mobile */
   .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.sort-th{cursor:pointer;user-select:none;white-space:nowrap;}
+.sort-th:hover{color:var(--accent);}
+.sort-th .si{margin-left:4px;opacity:.5;font-size:10px;transition:opacity .15s;}
+.sort-th.asc .si::after{content:'▲';opacity:1;color:var(--accent);}
+.sort-th.desc .si::after{content:'▼';opacity:1;color:var(--accent);}
+.sort-th:not(.asc):not(.desc) .si::after{content:'⇅';}
   /* Hide theme label text on mobile */
   #theme-lbl{display:none;}
   /* Hide topbar actions text — keep icons */
@@ -749,6 +755,35 @@ function ac(a){return a==='vencido'?'var(--danger)':a==='critico'?'#f87171':a===
 function aB(a,d){if(!a)return '';let lbl={vencido:'VENCIDO',critico:'CRÍTICO',urgente:'URGENTE',proximo:'PRÓXIMO'};let cls={vencido:'bvv',critico:'bcc',urgente:'buu',proximo:'bxx'};return `<span class="bpill ${cls[a]}">${lbl[a]}${a!=='vencido'&&d!==null?' ('+d+'d)':''}</span>`;}
 function eB(e){return `<span class="bpill ${e==='Activo'?'baa':e==='Retirado'?'brr':'bii'}">${e}</span>`;}
 function rB(r){return r==='admin'?`<span class="bpill bad2">Admin</span>`:`<span class="bpill bvi2">Viewer</span>`;}
+// ─── TABLE SORT ENGINE ────────────────────────────────────────────────────────
+const _srt={};
+function toggleSort(tid,field){
+  let s=_srt[tid]||{f:null,d:'asc'};
+  _srt[tid]={f:field,d:(s.f===field&&s.d==='asc')?'desc':'asc'};
+  if(tid==='emp')renderEmpleados();
+  if(tid==='proy')renderProyectos();
+  if(tid==='asig')renderAsignacion();
+  if(tid==='prog')renderProgramacion();
+}
+function sortRows(arr,tid){
+  let s=_srt[tid];if(!s||!s.f)return arr;
+  return[...arr].sort((a,b)=>{
+    let av=a[s.f]??'',bv=b[s.f]??'';
+    let an=parseFloat(av),bn=parseFloat(bv);
+    if(!isNaN(an)&&!isNaN(bn))return s.d==='asc'?an-bn:bn-an;
+    return s.d==='asc'?String(av).localeCompare(String(bv),'es'):String(bv).localeCompare(String(av),'es');
+  });
+}
+function th$(tid,f,lbl){
+  let s=_srt[tid]||{};
+  let cls=s.f===f?(s.d==='asc'?'asc':'desc'):'';
+  return`<th class="sort-th ${cls}" onclick="toggleSort('${tid}','${f}')">${lbl}<span class="si"></span></th>`;
+}
+
+// ─── COMBO FILTER HELPERS ─────────────────────────────────────────────────────
+const ESTADOS_FIN_PROY = new Set(['Concluido','Suspendido','En Garantía','Paralizado','FINALIZADO','Finalizado','finalizado']);
+function proyParaCombo(p){ return !ESTADOS_FIN_PROY.has(p.estado); }
+
 function pB(e){let m={Formulación:'bii',Licitación:'bvi2','En curso':'baa',Concluido:'bpu2',Suspendido:'brr'};return `<span class="bpill ${m[e]||'bii'}">${e}</span>`;}
 function sB(s){let m={Público:'sec-pub',Privado:'sec-pri',Minería:'sec-min',Energía:'sec-ene',Transporte:'sec-tra',Salud:'sec-sal',Educación:'sec-edu'};return `<span class="bpill ${m[s]||'sec-oth'}">${s||'—'}</span>`;}
 function isAdmin(){return DB.currentUser.role==='admin';}
@@ -989,6 +1024,8 @@ function mkDoughnutWithLabels(id,labels,data){
               text:ds.data[i]>0?`${lbl}: ${ds.data[i]}`:lbl,
               fillStyle:ds.backgroundColor[i],
               strokeStyle:ds.backgroundColor[i],
+              fontColor:isDark?'#e2e8f0':'#374151',
+              color:isDark?'#e2e8f0':'#374151',
               pointStyle:'circle',
               index:i,
             }));
@@ -1209,7 +1246,9 @@ function renderEmpleados(){
   let admin=isAdmin();
   ['btn-exp-fil','btn-exp-all','exp-sep'].forEach(id=>{let el=document.getElementById(id);if(el)el.style.display=admin?'inline-flex':'none';});
   let cnt=document.getElementById('emp-count');if(cnt)cnt.textContent=`${filteredEmps.length} empleado${filteredEmps.length!==1?'s':''} encontrado${filteredEmps.length!==1?'s':''}`;
-  let th=document.getElementById('emp-thead');if(th)th.innerHTML=`<tr><th>Código</th><th>Apellidos y Nombres</th><th>Profesión / Cargo</th><th>Área</th><th>Antigüedad</th><th>Fin Contrato</th><th>Alerta</th><th>Estado</th><th>Acciones</th></tr>`;
+  let th=document.getElementById('emp-thead');
+  if(th)th.innerHTML='<tr>'+th$('emp','codigo','Código')+th$('emp','apellidos','Apellidos y Nombres')+th$('emp','profesion','Profesión / Cargo')+th$('emp','area','Área')+th$('emp','fecha_ingreso','Antigüedad')+th$('emp','fecha_fin_contrato','Fin Contrato')+'<th>Alerta</th>'+th$('emp','estado','Estado')+'<th>Acciones</th></tr>';
+  filteredEmps=sortRows(filteredEmps,'emp');
   let tb=document.getElementById('emp-tbody');if(!tb)return;
   if(!filteredEmps.length){tb.innerHTML=`<tr><td colspan="9"><div class="empty"><h3>No se encontraron empleados</h3></div></td></tr>`;return;}
   tb.innerHTML=filteredEmps.map(e=>{
@@ -1276,6 +1315,10 @@ function saveEmp(){
   let nom=document.getElementById('f-nom').value.trim();
   let ape=document.getElementById('f-ape').value.trim();
   if(!cod||!nom||!ape){alert('Código, nombres y apellidos son requeridos.');return;}
+  if(!DB.editEmpId&&DB.employees.find(e=>e.codigo.toLowerCase()===cod.toLowerCase())){
+    alert('⚠ Ya existe un empleado con el código "'+cod+'".\nUsa un código diferente.');
+    document.getElementById('f-cod').focus();return;
+  }
   let data={codigo:cod,nombres:nom,apellidos:ape,
     dni:document.getElementById('f-dni').value.trim(),
     email:document.getElementById('f-email').value.trim(),
@@ -1464,7 +1507,9 @@ function renderProyectos(){
     if(q&&!`${p.codigo} ${p.nombre} ${p.cliente||''}`.toLowerCase().includes(q))return false;
     return true;
   });
-  let th=document.getElementById('proy-thead');if(th)th.innerHTML=`<tr><th>Código</th><th>Nombre del Proyecto</th><th>Cliente</th><th>Sector</th><th>Tipo Servicio</th><th>Estado</th><th>Inicio</th><th>Fin</th><th>Monto</th><th>Recursos</th><th>Acciones</th></tr>`;
+  let th=document.getElementById('proy-thead');
+  if(th)th.innerHTML='<tr>'+th$('proy','codigo','Código')+th$('proy','nombre','Proyecto')+th$('proy','cliente','Cliente')+th$('proy','sector','Sector')+th$('proy','tipo','Tipo')+th$('proy','estado','Estado')+th$('proy','fecha_inicio','Inicio')+th$('proy','fecha_fin','Fin')+th$('proy','monto','Monto')+'<th>Recursos</th><th>Acciones</th></tr>';
+  list=sortRows(list,'proy');
   let tb=document.getElementById('proy-tbody');if(!tb)return;
   if(!list.length){tb.innerHTML=`<tr><td colspan="11"><div class="empty"><h3>No se encontraron proyectos</h3></div></td></tr>`;return;}
   tb.innerHTML=list.map(p=>{
@@ -1536,6 +1581,10 @@ function saveProy(){
   let ini=document.getElementById('p-inicio').value;
   let fin=document.getElementById('p-fin').value;
   if(!cod||!nom||!ini||!fin){alert('Código, nombre, fecha inicio y fin son requeridos.');return;}
+  if(!DB.editProyId&&DB.projects.find(p=>p.codigo.toLowerCase()===cod.toLowerCase())){
+    alert('⚠ Ya existe un proyecto con el código "'+cod+'".\nUsa un código diferente.');
+    document.getElementById('p-cod').focus();return;
+  }
   let data={codigo:cod,nombre:nom,cliente:document.getElementById('p-cliente').value.trim(),sector:document.getElementById('p-sector').value,tipo:document.getElementById('p-tipo').value,estado:document.getElementById('p-est').value,fecha_inicio:ini,fecha_fin:fin,monto:parseFloat(document.getElementById('p-monto').value)||null,recursos_req:parseInt(document.getElementById('p-req').value)||0,ubicacion:document.getElementById('p-ubic').value,gerente:document.getElementById('p-gerente').value,descripcion:document.getElementById('p-desc').value.trim()};
   if(DB.editProyId){let i=DB.projects.findIndex(p=>p.id===DB.editProyId);if(i>=0)DB.projects[i]={...DB.projects[i],...data};}
   else DB.projects.push({id:DB.nextProyId++,...data});
@@ -1552,7 +1601,7 @@ function delProy(){
 function renderProgramacion(){
   // ── Filtros ──────────────────────────────────────────────────────────────
   let selEl=document.getElementById('prog-proy');
-  if(selEl){let sv=selEl.value;selEl.innerHTML='<option value="">Todos los proyectos</option>'+DB.projects.map(p=>`<option value="${p.id}"${p.id==sv?' selected':''}>${p.codigo} — ${p.nombre}</option>`).join('');}
+  if(selEl){let sv=selEl.value;selEl.innerHTML='<option value="">Todos los proyectos</option>'+DB.projects.filter(proyParaCombo).map(p=>`<option value="${p.id}"${p.id==sv?' selected':''}>${p.codigo} — ${p.nombre}</option>`).join('');}
   let pid=parseInt(document.getElementById('prog-proy')?.value)||0;
   let est=document.getElementById('prog-est')?.value||'';
   let list=DB.projects.filter(p=>{
@@ -1569,13 +1618,13 @@ function renderProgramacion(){
     ganttEl.innerHTML='<div class="empty"><h3>Sin proyectos con fechas definidas</h3><p>Verifica que los proyectos tengan Fecha Inicio y Fecha Fin.</p></div>';
   } else {
     // ── Calcular rango total ─────────────────────────────────────────────
-    let allStarts=list.map(p=>new Date(p.fecha_inicio+'T00:00:00'));
-    let allEnds  =list.map(p=>new Date(p.fecha_fin+'T00:00:00'));
+    // Parse as LOCAL dates to avoid UTC timezone offset shifting the Gantt
+    function localDate(s){let[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);}
+    let allStarts=list.map(p=>localDate(p.fecha_inicio));
+    let allEnds  =list.map(p=>localDate(p.fecha_fin));
     let minDate  =new Date(Math.min(...allStarts));
     let maxDate  =new Date(Math.max(...allEnds));
-    // Extender maxDate 1 mes extra para que la última barra tenga margen
     maxDate=new Date(maxDate.getFullYear(),maxDate.getMonth()+1,1);
-    // Retroceder minDate al inicio del mes
     minDate=new Date(minDate.getFullYear(),minDate.getMonth(),1);
     let totalMs=maxDate-minDate||1;
     let totalDays=totalMs/864e5;
@@ -1626,9 +1675,19 @@ function renderProgramacion(){
     let showToday=today>=minDate&&today<=maxDate;
 
     // ── Colores por estado ───────────────────────────────────────────────
-    const cols={'En curso':'#10b981','Formulación':'#94a3b8','Licitación':'#3b82f6',
-                'Concluido':'#8b5cf6','Suspendido':'#ef4444','En Garantía':'#f59e0b',
-                'Paralizado':'#f97316'};
+    const cols={
+      'En curso':'#10b981',
+      'Formulación':'#64748b',
+      'Licitación':'#3b82f6',
+      'Concluido':'#8b5cf6',
+      'Suspendido':'#ef4444',
+      'En Garantía':'#f59e0b',
+      'Paralizado':'#f97316',
+      'FINALIZADO':'#f97316',
+      'Finalizado':'#f97316',
+    };
+    // Map any DB state to a color
+    function barColor(estado){return cols[estado]||'#94a3b8';}
     const LABEL_W=200; // px ancho columna etiquetas
 
     // ── CSS interno del Gantt ─────────────────────────────────────────────
@@ -1639,7 +1698,7 @@ function renderProgramacion(){
       .g-timeline{position:relative;}
       .g-month-row{display:flex;height:22px;border-bottom:1px solid var(--border);}
       .g-month{border-right:1px solid var(--border);display:flex;align-items:center;padding:0 6px;font-weight:700;font-size:10px;color:var(--t2);overflow:hidden;white-space:nowrap;background:var(--bg3);}
-      .g-week-row{display:flex;height:18px;border-bottom:2px solid var(--border);}
+      .g-week-row{position:relative;height:18px;border-bottom:2px solid var(--border);overflow:hidden;}
       .g-week{border-right:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--t3);overflow:hidden;background:var(--bg3);}
       .g-rows{position:relative;}
       .g-row{display:flex;align-items:center;height:32px;border-bottom:1px solid var(--border);}
@@ -1661,12 +1720,12 @@ function renderProgramacion(){
 
     // ── Build rows HTML ───────────────────────────────────────────────────
     let rowsHtml=list.map(p=>{
-      let s=new Date(p.fecha_inicio+'T00:00:00');
-      let e=new Date(p.fecha_fin+'T00:00:00');
+      let s=localDate(p.fecha_inicio);
+      let e=localDate(p.fecha_fin);
       let left=Math.max(0,pct(s));
       let right=Math.min(100,pct(e));
       let wid=Math.max(.5,right-left);
-      let col=cols[p.estado]||'var(--accent)';
+      let col=barColor(p.estado);
       let dur=Math.round((e-s)/864e5);
       let progPct=p.estado==='Concluido'?100:p.estado==='En curso'?Math.min(100,Math.max(0,Math.round((today-s)/(e-s)*100))):0;
       return`<div class="g-row">
@@ -1721,21 +1780,47 @@ function renderProgramacion(){
           <!-- PROJECT ROWS -->
           <div class="g-rows" style="position:relative;">
             ${gridLines}
-            ${showToday?`<div class="g-today" style="left:${todayPct.toFixed(2)}%"></div>`:''}
+            ${showToday?`<div class="g-today" id="gantt-today" data-pct="${todayPct.toFixed(4)}"></div>`:''}
             ${rowsHtml}
           </div>
         </div>
       </div>
-      <!-- LEYENDA -->
+      <!-- LEYENDA — solo estados presentes en el listado actual -->
       <div class="g-legend">
-        ${Object.entries(cols).map(([st,col])=>`<div class="g-leg-item"><div class="g-leg-dot" style="background:${col}"></div>${st}</div>`).join('')}
+        ${[...new Set(list.map(p=>p.estado))].map(st=>{let col=barColor(st);return`<div class="g-leg-item"><div class="g-leg-dot" style="background:${col}"></div>${st}</div>`;}).join('')}
         ${showToday?'<div class="g-leg-item"><div style="width:12px;height:12px;background:var(--danger);border-radius:2px;"></div>Hoy</div>':''}
       </div>`;
   }
 
+  // ── Repositionar línea HOY correctamente ─────────────────────────────────
+  // La columna de etiquetas es fija (200px). La línea debe posicionarse
+  // solo en el área de barras, no en todo el contenedor.
+  requestAnimationFrame(()=>{
+    let todayEl=document.getElementById('gantt-today');
+    if(!todayEl)return;
+    let pctVal=parseFloat(todayEl.getAttribute('data-pct'))||0;
+    // Find the bar area width (g-rows width minus label width)
+    let gRows=todayEl.closest('.g-rows');
+    if(!gRows)return;
+    let rowsW=gRows.offsetWidth;
+    // Find the label cell width from first row
+    let labelCell=gRows.querySelector('.g-label-cell');
+    let labelW=labelCell?labelCell.offsetWidth:200;
+    let barW=rowsW-labelW;
+    // Position = labelW + pctVal% of barW
+    let leftPx=labelW+(pctVal/100)*barW;
+    todayEl.style.left=leftPx+'px';
+    todayEl.style.width='2px';
+    // Also fix grid lines (same calculation needed)
+    gRows.querySelectorAll('.g-grid-line').forEach((gl,i)=>{
+      let glPct=parseFloat(gl.style.left)||0;
+      gl.style.left=(labelW+(glPct/100)*barW)+'px';
+    });
+  });
+
   // ── Tabla inferior ────────────────────────────────────────────────────────
   let th=document.getElementById('prog-thead');
-  if(th)th.innerHTML='<tr><th>Código</th><th>Proyecto</th><th>Sector</th><th>Estado</th><th>Fecha Inicio</th><th>Fecha Fin</th><th>Duración</th><th>Ubicación</th><th>Monto</th><th>Acciones</th></tr>';
+  if(th)th.innerHTML='<tr>'+th$('prog','codigo','Código')+th$('prog','nombre','Proyecto')+th$('prog','sector','Sector')+th$('prog','estado','Estado')+th$('prog','fecha_inicio','Inicio')+th$('prog','fecha_fin','Fin')+'<th>Duración</th>'+th$('prog','ubicacion','Ubicación')+th$('prog','monto','Monto')+'<th>Acciones</th></tr>';
   let tb=document.getElementById('prog-tbody');if(!tb)return;
   let allList=DB.projects.filter(p=>{
     let pid2=parseInt(document.getElementById('prog-proy')?.value)||0;
@@ -1744,6 +1829,7 @@ function renderProgramacion(){
     if(est2&&p.estado!==est2)return false;
     return true;
   });
+  allList=sortRows(allList,'prog');
   if(!allList.length){tb.innerHTML='<tr><td colspan="10"><div class="empty"><h3>No hay proyectos</h3></div></td></tr>';return;}
   tb.innerHTML=allList.map(p=>{
     let dur=p.fecha_inicio&&p.fecha_fin?Math.round((new Date(p.fecha_fin+'T00:00:00')-new Date(p.fecha_inicio+'T00:00:00'))/864e5):null;
@@ -1766,8 +1852,8 @@ function clearAsigFil(){['asig-proy','asig-emp'].forEach(id=>{let el=document.ge
 function renderAsignacion(){
   let pEl=document.getElementById('asig-proy');
   let eEl=document.getElementById('asig-emp');
-  if(pEl){let pv=pEl.value;pEl.innerHTML=`<option value="">Todos los proyectos</option>`+DB.projects.map(p=>`<option value="${p.id}"${p.id==pv?' selected':''}>${p.codigo} — ${p.nombre}</option>`).join('');}
-  if(eEl){let ev=eEl.value;eEl.innerHTML='<option value="">Todos los empleados</option>'+DB.employees.filter(e=>e.estado==='Activo').map(e=>`<option value="${e.id}"${e.id==ev?' selected':''}>${e.apellidos}, ${e.nombres}</option>`).join('')+DB.employees.filter(e=>e.estado!=='Activo').map(e=>`<option value="${e.id}" disabled style="color:var(--t3)"${e.id==ev?' selected':''}>${e.apellidos}, ${e.nombres} [${e.estado}]</option>`).join('');}
+  if(pEl){let pv=pEl.value;pEl.innerHTML=`<option value="">Todos los proyectos</option>`+DB.projects.filter(proyParaCombo).map(p=>`<option value="${p.id}"${p.id==pv?' selected':''}>${p.codigo} — ${p.nombre}</option>`).join('');}
+  if(eEl){let ev=eEl.value;eEl.innerHTML='<option value="">Todos los empleados</option>'+DB.employees.filter(e=>e.estado==='Activo').map(e=>`<option value="${e.id}"${e.id==ev?' selected':''}>${e.apellidos}, ${e.nombres}</option>`).join('')+DB.employees.filter(e=>e.estado==='Inactivo').map(e=>`<option value="${e.id}" disabled style="color:var(--t3)"${e.id==ev?' selected':''}>${e.apellidos}, ${e.nombres} [${e.estado}]</option>`).join('');}
   let pid=parseInt(pEl?.value)||0;
   let eid=parseInt(eEl?.value)||0;
   let list=DB.assignments.filter(a=>{if(pid&&a.proyecto_id!==pid)return false;if(eid&&a.empleado_id!==eid)return false;return true;});
@@ -1808,7 +1894,9 @@ function renderAsignacion(){
     else libEl.innerHTML=libres.map(e=>`<div class="tag">${e.apellidos.split(' ')[0]}, ${e.nombres.split(' ')[0]} — ${e.profesion||e.cargo||'—'}</div>`).join('');
   }
 
-  let th=document.getElementById('asig-thead');if(th)th.innerHTML=`<tr><th>Proyecto</th><th>Puesto en Proyecto</th><th>Empleado</th><th>Profesión</th><th>% Participación</th><th>Inicio</th><th>Fin Asignación</th><th>Alerta</th><th>Acciones</th></tr>`;
+  let th=document.getElementById('asig-thead');
+  if(th)th.innerHTML='<tr>'+th$('asig','proyecto_id','Proyecto')+th$('asig','puesto','Puesto')+'<th>Empleado</th><th>Profesión</th>'+th$('asig','pct','% Part.')+th$('asig','fecha_ini','Inicio')+th$('asig','fecha_fin','Fin Asig.')+'<th>Alerta</th><th>Acciones</th></tr>';
+  list=sortRows(list,'asig');
   let tb=document.getElementById('asig-tbody');if(!tb)return;
   if(!list.length){tb.innerHTML=`<tr><td colspan="9"><div class="empty"><h3>No hay asignaciones</h3></div></td></tr>`;return;}
   tb.innerHTML=list.map(a=>{
@@ -1839,7 +1927,7 @@ function openAsigModal(id){
   document.getElementById('btn-del-asig').style.display=id?'inline-flex':'none';
   let pSel=document.getElementById('a-proy');
   let eSel=document.getElementById('a-emp');
-  pSel.innerHTML=DB.projects.map(p=>`<option value="${p.id}">${p.codigo} — ${p.nombre}</option>`).join('');
+  pSel.innerHTML=DB.projects.filter(proyParaCombo).map(p=>`<option value="${p.id}">${p.codigo} — ${p.nombre}</option>`).join('');
   let empsActivos=DB.employees.filter(e=>e.estado==='Activo');
   if(!empsActivos.length){
     eSel.innerHTML='<option value="">— Sin empleados activos disponibles —</option>';
@@ -2706,6 +2794,10 @@ window.saveEmp = async function(){
   let nom=document.getElementById('f-nom').value.trim();
   let ape=document.getElementById('f-ape').value.trim();
   if(!cod||!nom||!ape){toast('Código, nombres y apellidos son requeridos.','w');return;}
+  if(!DB.editEmpId&&DB.employees.find(e=>e.codigo.toLowerCase()===cod.toLowerCase())){
+    toast('⚠ Ya existe un empleado con el código "'+cod+'". Usa un código diferente.','w');
+    document.getElementById('f-cod').focus();return;
+  }
 
   let payload={
     codigo:cod, nombres:nom, apellidos:ape,
@@ -2816,6 +2908,10 @@ window.saveProy = async function(){
   let ini=document.getElementById('p-inicio').value;
   let fin=document.getElementById('p-fin').value;
   if(!cod||!nom||!ini||!fin){toast('Código, nombre, fecha inicio y fin son requeridos.','w');return;}
+  if(!DB.editProyId&&DB.projects.find(p=>p.codigo.toLowerCase()===cod.toLowerCase())){
+    toast('⚠ Ya existe un proyecto con el código "'+cod+'". Usa un código diferente.','w');
+    document.getElementById('p-cod').focus();return;
+  }
 
   let payload={
     codigo:cod, nombre:nom,

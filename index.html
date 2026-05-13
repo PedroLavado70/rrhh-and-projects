@@ -18,7 +18,7 @@
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden;font-size:14px;transition:background .2s,color .2s;}
 
 /* ── SIDEBAR ─────────────────────────────────────────────────────── */
-.sb{width:var(--sb);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:transform .25s ease,background .2s;z-index:300;}
+.sb{width:var(--sb);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:transform .25s ease,width .25s ease,background .2s;z-index:300;}
 .sb-logo{padding:12px 14px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;min-height:58px;}
 
 /* ── SIDEBAR OVERLAY (mobile) ────────────────────────────────────── */
@@ -36,10 +36,9 @@ body.sb-open .hbg span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
 
 /* ── DESKTOP: sidebar always visible, toggle collapses it ─────────── */
 @media (min-width:769px){
-  body.sb-collapsed .sb{transform:translateX(calc(-1 * var(--sb)));}
-  body.sb-collapsed .main{margin-left:0 !important;}
-  .main{margin-left:0;transition:margin-left .25s ease;}
-  body:not(.sb-collapsed) .main{margin-left:0;}
+  body.sb-collapsed .sb{width:0;overflow:hidden;border-right:none;}
+  body.sb-collapsed .main{flex:1;}
+  .main{flex:1;transition:flex .25s ease;}
 }
 
 /* ── MOBILE: sidebar slides over content ─────────────────────────── */
@@ -128,6 +127,7 @@ body.sb-open .hbg span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
 .tb{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:8px;}
 .pt{font-size:17px;font-weight:700;}
+.app-title{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--t3);font-weight:600;margin-bottom:1px;}
 .ct{display:flex;overflow-y:auto;padding:16px 20px;flex:1;-webkit-overflow-scrolling:touch;}
 .ct>div{flex:1;}
 .pb{display:flex;gap:5px;align-items:center;flex-shrink:0;}
@@ -300,6 +300,7 @@ code{color:var(--a2);font-size:10px;}
 .print-header .ph-title{font-size:18pt;font-weight:900;color:#1e3a8a;margin-bottom:3pt;}
 .print-header .ph-sub{font-size:10pt;color:#475569;margin-bottom:2pt;}
 .print-header .ph-date{font-size:9pt;color:#94a3b8;margin-top:6pt;padding-top:6pt;border-top:1px solid #e2e8f0;}
+.bcc{background:rgba(249,115,22,.15);color:#f97316;font-weight:700;}
 </style>
 </head>
 <body>
@@ -381,7 +382,10 @@ code{color:var(--a2);font-size:10px;}
       <button class="hbg" onclick="toggleSidebar()" aria-label="Menú" id="hbg-btn">
         <span></span><span></span><span></span>
       </button>
-      <div class="pt" id="page-title">Dashboard</div>
+      <div>
+        <div class="app-title">Gestión de Proyectos y RRHH</div>
+        <div class="pt" id="page-title">Dashboard</div>
+      </div>
     </div>
     <div class="pb">
       <div id="topbar-actions"></div>
@@ -394,6 +398,22 @@ code{color:var(--a2);font-size:10px;}
 
     <!-- ══ DASHBOARD ══ -->
     <div class="page active" id="page-dashboard">
+      <!-- FILTROS DASHBOARD -->
+      <div class="sr" style="margin-bottom:14px;">
+        <select class="fc" id="dash-fil-resp" style="max-width:200px;" onchange="renderDashboard()"><option value="">Todos los responsables</option></select>
+        <select class="fc" id="dash-fil-est" style="max-width:150px;" onchange="renderDashboard()">
+          <option value="">Todos los estados</option>
+          <option value="En curso">En curso</option>
+          <option value="Formulación">Formulación</option>
+          <option value="Licitación">Licitación</option>
+          <option value="Concluido">Concluido</option>
+          <option value="Suspendido">Suspendido</option>
+          <option value="FINALIZADO">Finalizado</option>
+          <option value="En Garantía">En Garantía</option>
+        </select>
+        <select class="fc" id="dash-fil-anio" style="max-width:120px;" onchange="renderDashboard()"><option value="">Todos los años</option></select>
+        <button class="btn bs bsm" onclick="clearDashFil()">Limpiar</button>
+      </div>
       <!-- KPIs RRHH -->
       <div class="kg" id="kpi-rrhh"></div>
       <!-- KPIs PROYECTOS -->
@@ -450,6 +470,18 @@ code{color:var(--a2);font-size:10px;}
     <!-- ══ ALERTAS RRHH ══ -->
     <div class="page" id="page-alertas">
       <div class="kg" id="alertas-kpis"></div>
+      <div class="sr" style="margin-bottom:12px;">
+        <select class="fc" id="al-fil-area" style="max-width:160px;" onchange="renderAlertas()"><option value="">Todas las áreas</option></select>
+        <select class="fc" id="al-fil-tipo" style="max-width:160px;" onchange="renderAlertas()"><option value="">Todos los contratos</option></select>
+        <select class="fc" id="al-fil-alerta" style="max-width:150px;" onchange="renderAlertas()">
+          <option value="">Todos los niveles</option>
+          <option value="vencido">🔴 Vencido</option>
+          <option value="critico">🟠 Crítico ≤15d</option>
+          <option value="urgente">🟡 Urgente ≤30d</option>
+          <option value="proximo">🟢 Próximo ≤60d</option>
+        </select>
+        <button class="btn bs bsm" onclick="clearAlertasFil()">Limpiar</button>
+      </div>
       <div class="card" style="padding:0 0 1px;"><div class="tw"><table><thead id="alertas-thead"></thead><tbody id="alertas-tbody"></tbody></table></div></div>
     </div>
 
@@ -457,7 +489,7 @@ code{color:var(--a2);font-size:10px;}
     <div class="page" id="page-empleados">
       <div class="sr">
         <input class="fc" id="search-q" placeholder="Buscar nombre, DNI, cargo..." style="max-width:220px;" oninput="renderEmpleados()">
-        <select class="fc" id="fil-est" style="max-width:120px;" onchange="renderEmpleados()"><option value="">Todos</option><option value="Activo" selected>Activo</option><option value="Inactivo">Inactivo</option><option value="Retirado">Retirado</option></select>
+        <select class="fc" id="fil-est" style="max-width:120px;" onchange="renderEmpleados()"><option value="">Todos</option><option value="Activo" selected>Activo</option><option value="Inactivo">Inactivo</option><option value="Cesado">Cesado</option><option value="Retirado">Retirado</option></select>
         <select class="fc" id="fil-area" style="max-width:140px;" onchange="renderEmpleados()"><option value="">Todas las áreas</option></select>
         <select class="fc" id="fil-prof" style="max-width:150px;" onchange="renderEmpleados()"><option value="">Todas las profesiones</option></select>
         <button class="btn bs bsm" onclick="clearFilters()">Limpiar</button>
@@ -478,6 +510,7 @@ code{color:var(--a2);font-size:10px;}
         <input class="fc" id="proy-search" placeholder="Buscar proyecto..." style="max-width:220px;" oninput="renderProyectos()">
         <select class="fc" id="proy-fil-sector" style="max-width:150px;" onchange="renderProyectos()"><option value="">Todos los sectores</option></select>
         <select class="fc" id="proy-fil-est" style="max-width:130px;" onchange="renderProyectos()"><option value="">Todos los estados</option><option value="En curso">En curso</option><option value="Formulación">Formulación</option><option value="Licitación">Licitación</option><option value="Concluido">Concluido</option><option value="Suspendido">Suspendido</option></select>
+        <select class="fc" id="proy-fil-resp" style="max-width:180px;" onchange="renderProyectos()"><option value="">Todos los responsables</option></select>
         <button class="btn bs bsm" onclick="clearProyFil()">Limpiar</button>
       </div>
       <div class="card" style="padding:0 0 1px;"><div class="tw"><table><thead id="proy-thead"></thead><tbody id="proy-tbody"></tbody></table></div></div>
@@ -486,8 +519,11 @@ code{color:var(--a2);font-size:10px;}
     <!-- ══ PROGRAMACIÓN PROYECTOS ══ -->
     <div class="page" id="page-programacion">
       <div class="sr">
-        <select class="fc" id="prog-proy" style="max-width:280px;" onchange="renderProgramacion()"><option value="">Todos los proyectos</option></select>
-        <select class="fc" id="prog-est" style="max-width:140px;" onchange="renderProgramacion()"><option value="">Todos los estados</option><option value="En curso">En curso</option><option value="Formulación">Formulación</option><option value="Licitación">Licitación</option><option value="Concluido">Concluido</option></select>
+        <select class="fc" id="prog-proy" style="max-width:200px;" onchange="renderProgramacion()"><option value="">Todos los proyectos</option></select>
+        <select class="fc" id="prog-est" style="max-width:120px;" onchange="renderProgramacion()"><option value="">Todos los estados</option><option value="En curso">En curso</option><option value="Formulación">Formulación</option><option value="Licitación">Licitación</option><option value="Concluido">Concluido</option></select>
+        <select class="fc" id="prog-resp" style="max-width:160px;" onchange="renderProgramacion()"><option value="">Todos los responsables</option></select>
+        <input class="fc" id="prog-desde" type="date" style="max-width:120px;" onchange="renderProgramacion()" title="Desde">
+        <input class="fc" id="prog-hasta" type="date" style="max-width:120px;" onchange="renderProgramacion()" title="Hasta">
       </div>
       <div id="prog-gantt" class="card" style="margin-bottom:14px;"></div>
       <div class="card" style="padding:0 0 1px;"><div class="tw"><table><thead id="prog-thead"></thead><tbody id="prog-tbody"></tbody></table></div></div>
@@ -496,10 +532,15 @@ code{color:var(--a2);font-size:10px;}
     <!-- ══ ASIGNACIÓN DE RECURSOS ══ -->
     <div class="page" id="page-asignacion">
       <div class="sr">
-        <select class="fc" id="asig-proy" style="max-width:260px;" onchange="renderAsignacion()"><option value="">Todos los proyectos</option></select>
-        <select class="fc" id="asig-emp" style="max-width:200px;" onchange="renderAsignacion()"><option value="">Todos los empleados</option></select>
+        <select class="fc" id="asig-proy" style="max-width:200px;" onchange="renderAsignacion()"><option value="">Todos los proyectos</option></select>
+        <select class="fc" id="asig-emp" style="max-width:170px;" onchange="renderAsignacion();renderEmpParticipacion()"><option value="">Todos los empleados</option></select>
+        <select class="fc" id="asig-resp" style="max-width:160px;" onchange="renderAsignacion()"><option value="">Todos los responsables</option></select>
+        <input class="fc" id="asig-desde" type="date" style="max-width:130px;" onchange="renderAsignacion()" title="Desde">
+        <input class="fc" id="asig-hasta" type="date" style="max-width:130px;" onchange="renderAsignacion()" title="Hasta">
         <button class="btn bs bsm" onclick="clearAsigFil()">Limpiar</button>
+        <button class="btn bs bsm" onclick="exportarReporteEmpleado()" id="btn-rep-emp" style="display:none;" title="Reporte histórico del empleado">📄 Reporte</button>
       </div>
+      <div id="emp-chart-panel" style="display:none;margin-bottom:14px;"></div>
       <div class="cg" style="margin-bottom:14px;">
         <div class="card"><div class="ct2" style="font-size:12px;">Resumen de Asignaciones</div><div id="asig-resumen"></div></div>
         <div class="card"><div class="ct2" style="font-size:12px;">Empleados sin asignación activa</div><div id="asig-libres"></div></div>
@@ -636,12 +677,23 @@ code{color:var(--a2);font-size:10px;}
     <div class="mod" style="max-width:560px;">
       <div class="mt" id="m-asig-t">Nueva Asignación</div>
       <div class="fg2">
-        <div class="fg ff"><label class="fl">Proyecto *</label><select class="fc" id="a-proy"></select></div>
+        <div class="fg ff"><label class="fl">Proyecto *</label>
+          <select class="fc" id="a-proy" onchange="onProyChange()"></select>
+          <div id="a-proy-info" style="margin-top:5px;display:none;background:var(--bg3);border-radius:7px;padding:8px 11px;font-size:11px;border-left:3px solid var(--a2);"></div>
+        </div>
         <div class="fg"><label class="fl">Puesto / Rol en Proyecto *</label><input class="fc" id="a-puesto" placeholder="Ej: Supervisor Residente"></div>
-        <div class="fg"><label class="fl">Empleado *</label><select class="fc" id="a-emp"></select></div>
+        <div class="fg"><label class="fl">Empleado *</label>
+          <select class="fc" id="a-emp" onchange="onEmpChange()"></select>
+          <div id="a-emp-info" style="margin-top:5px;display:none;background:var(--bg3);border-radius:7px;padding:8px 11px;font-size:11px;border-left:3px solid var(--a3);"></div>
+        </div>
         <div class="fg"><label class="fl">% Participación *</label><input class="fc" id="a-pct" type="number" min="1" max="100" placeholder="Ej: 100"></div>
-        <div class="fg"><label class="fl">Fecha Inicio *</label><input class="fc" id="a-ini" type="date"></div>
-        <div class="fg"><label class="fl">Fecha Fin *</label><input class="fc" id="a-fin" type="date"></div>
+        <div class="fg"><label class="fl">Fecha Inicio *</label>
+          <input class="fc" id="a-ini" type="date" onchange="checkAsigDateWarning()">
+        </div>
+        <div class="fg"><label class="fl">Fecha Fin *</label>
+          <input class="fc" id="a-fin" type="date" onchange="checkAsigDateWarning()">
+          <div id="a-date-warn" style="display:none;margin-top:5px;"></div>
+        </div>
       </div>
       <div class="fg ff" style="margin-top:2px;"><label class="fl">Observaciones</label><input class="fc" id="a-obs"></div>
       <div style="display:flex;gap:8px;margin-top:14px;">
@@ -766,7 +818,7 @@ let DB={
     sectores:['Público','Privado','Minería','Energía','Transporte','Salud','Educación','Agua y Saneamiento','Industria','Agricultura','Otro'],
     tiposServicio:['Supervisión de Obra','Gerencia de Proyecto','Ingeniería Básica','Ingeniería de Detalle','Consultoría','Expediente Técnico','Licitación','Estudios de Factibilidad','Supervisión de Diseño','Otro'],
     estadosProyecto:['Formulación','Licitación','En curso','Paralizado','Concluido','Suspendido','En Garantía'],
-    estadosEmpleado:['Activo','Inactivo','Retirado','Vacaciones','Licencia'],
+    estadosEmpleado:['Activo','Inactivo','Cesado','Retirado','Vacaciones','Licencia'],
     tiposContrato:['Indefinido','Plazo Fijo','Por Obra','Honorarios','Practicante','CAS','Locación de Servicios','Tiempo Parcial'],
     cargos:['Gerente de Proyectos','Jefe de Supervisión','Supervisor Residente','Especialista Estructural','Especialista Sanitario','Especialista Eléctrico','Especialista Vial','Especialista Ambiental','Especialista en Costos','Arquitecto Proyectista','Arquitecto Coordinador','Asistente de Ingeniería','Asistente Administrativo','Contadora General','Jefe de Costos','Jefe Administrativo','Inspector de Obra','Técnico de Campo','Dibujante CAD','Cadista','Laboratorista','Topógrafo'],
     areas:['Dirección','Gerencia de Proyectos','Supervisión','Ingeniería','Licitaciones','Administración','Finanzas','Recursos Humanos','Logística','Legal','Sistemas'],
@@ -791,7 +843,7 @@ function alerta(e){let d=dv(e.fecha_fin_contrato);if(d===null)return null;if(d<0
 function alertaAsig(a){let d=dv(a.fecha_fin);if(d===null)return null;if(d<0)return 'vencido';if(d<=15)return 'critico';if(d<=30)return 'urgente';return null;}
 function ac(a){return a==='vencido'?'var(--danger)':a==='critico'?'#f87171':a==='urgente'?'var(--warn)':'var(--accent)';}
 function aB(a,d){if(!a)return '';let lbl={vencido:'VENCIDO',critico:'CRÍTICO',urgente:'URGENTE',proximo:'PRÓXIMO'};let cls={vencido:'bvv',critico:'bcc',urgente:'buu',proximo:'bxx'};return `<span class="bpill ${cls[a]}">${lbl[a]}${a!=='vencido'&&d!==null?' ('+d+'d)':''}</span>`;}
-function eB(e){return `<span class="bpill ${e==='Activo'?'baa':e==='Retirado'?'brr':'bii'}">${e}</span>`;}
+function eB(e){return `<span class="bpill ${e==='Activo'?'baa':e==='Retirado'||e==='Cesado'?'bcc':'bii'}">${e}</span>`;}
 function rB(r){return r==='admin'?`<span class="bpill bad2">Admin</span>`:`<span class="bpill bvi2">Viewer</span>`;}
 // ─── TABLE SORT ENGINE ────────────────────────────────────────────────────────
 const _srt={};
@@ -1119,60 +1171,130 @@ function mkDoughnutWithLabels(id,labels,data){
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
+function clearDashFil(){
+  ['dash-fil-resp','dash-fil-est','dash-fil-anio'].forEach(id=>{let el=document.getElementById(id);if(el)el.value='';});
+  renderDashboard();
+}
+
 function renderDashboard(){
+  // ── Populate filter combos ──────────────────────────────────────
+  let respEl=document.getElementById('dash-fil-resp');
+  if(respEl){
+    let rv=respEl.value;
+    let resps=[...new Set(DB.projects.map(p=>p.gerente).filter(Boolean))].sort();
+    respEl.innerHTML='<option value="">Todos los responsables</option>'+resps.map(r=>`<option value="${r}"${r===rv?' selected':''}>${r}</option>`).join('');
+  }
+  let anioEl=document.getElementById('dash-fil-anio');
+  if(anioEl){
+    let av=anioEl.value;
+    let anios=[...new Set(DB.projects.map(p=>p.fecha_inicio?p.fecha_inicio.slice(0,4):null).filter(Boolean))].sort().reverse();
+    anioEl.innerHTML='<option value="">Todos los años</option>'+anios.map(a=>`<option value="${a}"${a===av?' selected':''}>${a}</option>`).join('');
+  }
+
+  // ── Read filter values ──────────────────────────────────────────
+  let filtResp=document.getElementById('dash-fil-resp')?.value||'';
+  let filtEst =document.getElementById('dash-fil-est')?.value||'';
+  let filtAnio=document.getElementById('dash-fil-anio')?.value||'';
+  let hasFilter=filtResp||filtEst||filtAnio;
+
+  // ── Filter projects ─────────────────────────────────────────────
+  let allProys=DB.projects;
+  let proys=allProys.filter(p=>{
+    if(filtResp&&p.gerente!==filtResp)return false;
+    if(filtEst&&p.estado!==filtEst)return false;
+    if(filtAnio&&p.fecha_inicio&&p.fecha_inicio.slice(0,4)!==filtAnio)return false;
+    return true;
+  });
+
+  // ── RRHH KPIs — always from all employees (not filtered by project) ──
   let activos=DB.employees.filter(e=>e.estado==='Activo');
-  let al=activos.filter(e=>alerta(e));
-  let v=al.filter(e=>alerta(e)==='vencido').length,c=al.filter(e=>alerta(e)==='critico').length;
-  let u=al.filter(e=>alerta(e)==='urgente').length,p=al.filter(e=>alerta(e)==='proximo').length;
+  // If responsable filter active, show employees assigned to those projects
+  let empleadosFiltrados=activos;
+  if(filtResp||filtAnio||filtEst){
+    let proyIds=new Set(proys.map(p=>p.id));
+    let empIds=new Set(DB.assignments.filter(a=>proyIds.has(a.proyecto_id)).map(a=>a.empleado_id));
+    empleadosFiltrados=activos.filter(e=>empIds.has(e.id));
+  }
+
+  let al=activos.filter(e=>alerta(e)); // Alerts always from ALL activos
+  let v=al.filter(e=>alerta(e)==='vencido').length,cv=al.filter(e=>alerta(e)==='critico').length;
+  let u=al.filter(e=>alerta(e)==='urgente').length,pv=al.filter(e=>alerta(e)==='proximo').length;
   document.getElementById('badge-alertas').textContent=al.length;
   if(typeof syncMobileBadge!=='undefined')syncMobileBadge();
 
-  let proys=DB.projects;
   let en_curso=proys.filter(p=>p.estado==='En curso').length;
   let form=proys.filter(p=>p.estado==='Formulación'||p.estado==='Licitación').length;
-  let sin_rec=proys.filter(p=>{let asigs=proyAsigs(p.id).filter(a=>!alerta(a)||alerta(a)==='proximo');return asigs.length<(p.recursos_req||0)&&p.estado!=='Concluido'&&p.estado!=='Suspendido';}).length;
+  let sin_rec=proys.filter(p=>{
+    let asigActivas=DB.assignments.filter(a=>a.proyecto_id===p.id&&dv(a.fecha_fin)>=0).length;
+    return asigActivas<(p.recursos_req||0)&&!['Concluido','Suspendido','FINALIZADO','Finalizado'].includes(p.estado);
+  }).length;
+
+  // ── Filter indicator banner ─────────────────────────────────────
+  let filterBanner='';
+  if(hasFilter){
+    let parts=[];
+    if(filtResp)parts.push(`Responsable: <strong>${filtResp}</strong>`);
+    if(filtEst)parts.push(`Estado: <strong>${filtEst}</strong>`);
+    if(filtAnio)parts.push(`Año: <strong>${filtAnio}</strong>`);
+    filterBanner=`<div class="alt alt-i" style="margin-bottom:12px;font-size:11px;">
+      🔍 Filtros activos: ${parts.join(' · ')} —
+      <strong>${proys.length}</strong> proyecto${proys.length!==1?'s':''} / <strong>${empleadosFiltrados.length}</strong> empleado${empleadosFiltrados.length!==1?'s':''} asignados
+      <button class="btn bs bsm" style="margin-left:8px;" onclick="clearDashFil()">Limpiar</button>
+    </div>`;
+  }
+
+  // Insert banner before kpi-rrhh
+  let bannerEl=document.getElementById('dash-filter-banner');
+  if(!bannerEl){
+    bannerEl=document.createElement('div');
+    bannerEl.id='dash-filter-banner';
+    let kpiRrhh=document.getElementById('kpi-rrhh');
+    if(kpiRrhh)kpiRrhh.parentNode.insertBefore(bannerEl,kpiRrhh);
+  }
+  bannerEl.innerHTML=filterBanner;
 
   document.getElementById('kpi-rrhh').innerHTML=`
-    <div class="kpi" style="--kc:#3b82f6"><div class="kl">Total Activos</div><div class="kv">${activos.length}</div><div class="ks">En planilla</div></div>
+    <div class="kpi" style="--kc:#3b82f6"><div class="kl">${hasFilter?'Empleados Asignados':'Total Activos'}</div><div class="kv">${hasFilter?empleadosFiltrados.length:activos.length}</div><div class="ks">${hasFilter?'En proyectos filtrados':'En planilla'}</div></div>
     <div class="kpi" style="--kc:var(--danger)"><div class="kl">Contratos Vencidos</div><div class="kv">${v}</div><div class="ks">Acción inmediata</div></div>
-    <div class="kpi" style="--kc:#f87171"><div class="kl">Críticos ≤15d</div><div class="kv">${c}</div><div class="ks">Muy urgentes</div></div>
+    <div class="kpi" style="--kc:#f87171"><div class="kl">Críticos ≤15d</div><div class="kv">${cv}</div><div class="ks">Muy urgentes</div></div>
     <div class="kpi" style="--kc:var(--warn)"><div class="kl">Urgentes ≤30d</div><div class="kv">${u}</div><div class="ks">Pendientes</div></div>`;
 
   document.getElementById('kpi-proy').innerHTML=`
-    <div class="kpi" style="--kc:var(--a4)"><div class="kl">Total Proyectos</div><div class="kv">${proys.length}</div><div class="ks">En cartera</div></div>
+    <div class="kpi" style="--kc:var(--a4)"><div class="kl">${hasFilter?'Proyectos filtrados':'Total Proyectos'}</div><div class="kv">${proys.length}</div><div class="ks">${hasFilter?[filtResp,filtEst,filtAnio].filter(Boolean).join(' · '):'En cartera'}</div></div>
     <div class="kpi" style="--kc:var(--a3)"><div class="kl">En Ejecución</div><div class="kv">${en_curso}</div><div class="ks">En curso activo</div></div>
     <div class="kpi" style="--kc:#06b6d4"><div class="kl">En Formulación</div><div class="kv">${form}</div><div class="ks">Formulación / Licit.</div></div>
     <div class="kpi" style="--kc:var(--warn)"><div class="kl">Sin Recursos Completos</div><div class="kv">${sin_rec}</div><div class="ks">Requieren asignación</div></div>`;
 
-  buildCharts();
-  buildChartParticipacion();
-  renderDashAsigAlert();
-  renderDashProySinRec();
+  buildCharts(proys,empleadosFiltrados);
+  buildChartParticipacion(proys);
+  renderDashAsigAlert(proys);
+  renderDashProySinRec(proys);
   renderDashAlertas(al);
 }
 
-function buildCharts(){
-  let activos=DB.employees.filter(e=>e.estado==='Activo');
+function buildCharts(proys,emps){
+  // Use filtered data if provided, else full DB
+  let activos=emps||DB.employees.filter(e=>e.estado==='Activo');
+  let proyList=proys||DB.projects;
   // Profesión con cantidades
   let pm={};activos.forEach(e=>{let v=e.profesion||'N/A';pm[v]=(pm[v]||0)+1;});
   let pr=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,6);
   mkChart('ch-prof','bar',pr.map(x=>x[0]),pr.map(x=>x[1]),{color:'#3b82f6'});
-
-  // Antigüedad doughnut con cantidades en leyenda
+  // Antigüedad doughnut
   let an={' <1 año':0,'1–3 años':0,'3–5 años':0,'5–10 años':0,'>10 años':0};
   activos.forEach(e=>{let a=antig(e.fecha_ingreso);if(a<1)an[' <1 año']++;else if(a<3)an['1–3 años']++;else if(a<5)an['3–5 años']++;else if(a<10)an['5–10 años']++;else an['>10 años']++;});
   mkDoughnutWithLabels('ch-antig',Object.keys(an),Object.values(an));
-
-  // Proyectos por sector
-  let sm={};DB.projects.forEach(p=>{let s=p.sector||'Otro';sm[s]=(sm[s]||0)+1;});
+  // Proyectos por sector (filtered)
+  let sm={};proyList.forEach(p=>{let s=p.sector||'Otro';sm[s]=(sm[s]||0)+1;});
   mkDoughnutWithLabels('ch-sector',Object.keys(sm),Object.values(sm));
 }
 
-function buildChartParticipacion(){
+function buildChartParticipacion(proys){
   let sel=document.getElementById('sel-proy-chart');
-  // Populate selector
+  // Populate selector with filtered list (or all)
+  let proyList=proys||DB.projects;
   let cur=sel.value;
-  sel.innerHTML=DB.projects.map(p=>`<option value="${p.id}"${p.id==cur?' selected':''}>${p.codigo} — ${p.nombre.slice(0,28)}</option>`).join('');
+  sel.innerHTML=proyList.map(p=>`<option value="${p.id}"${p.id==cur?' selected':''}>${p.codigo} — ${p.nombre.slice(0,28)}</option>`).join('');
   if(!sel.value&&DB.projects.length)sel.value=DB.projects[0].id;
   let pid=parseInt(sel.value);
   if(!pid)return;
@@ -1184,11 +1306,13 @@ function buildChartParticipacion(){
   mkChart('ch-participacion','bar',labels,data,{colors,pct:true});
 }
 
-function renderDashAsigAlert(){
-  let hoy=new Date();
+function renderDashAsigAlert(proys){
+  let proyIds=proys?new Set(proys.map(p=>p.id)):null;
   let porTerminar=DB.assignments.filter(a=>{
     let d=dv(a.fecha_fin);
-    return d!==null&&d<=30;
+    if(d===null||d>30)return false;
+    if(proyIds&&!proyIds.has(a.proyecto_id))return false;
+    return true;
   }).sort((a,b)=>dv(a.fecha_fin)-dv(b.fecha_fin)).slice(0,5);
   if(!porTerminar.length){document.getElementById('dash-asig-alert').innerHTML=`<div class="empty"><h3>Sin asignaciones por terminar</h3><p>No hay asignaciones en los próximos 30 días.</p></div>`;return;}
   document.getElementById('dash-asig-alert').innerHTML=porTerminar.map(a=>{
@@ -1207,9 +1331,10 @@ function renderDashAsigAlert(){
   }).join('');
 }
 
-function renderDashProySinRec(){
-  let sinRec=DB.projects.filter(p=>{
-    if(p.estado==='Concluido'||p.estado==='Suspendido')return false;
+function renderDashProySinRec(proys){
+  let proyList=proys||DB.projects;
+  let sinRec=proyList.filter(p=>{
+    if(['Concluido','Suspendido','FINALIZADO','Finalizado'].includes(p.estado))return false;
     let asigActivas=DB.assignments.filter(a=>a.proyecto_id===p.id&&dv(a.fecha_fin)>=0);
     return asigActivas.length<(p.recursos_req||1);
   });
@@ -1249,8 +1374,26 @@ function renderDashAlertas(al){
 }
 
 // ─── ALERTAS RRHH ────────────────────────────────────────────────────────────
+function clearAlertasFil(){['al-fil-area','al-fil-tipo','al-fil-alerta'].forEach(id=>{let el=document.getElementById(id);if(el)el.value='';});renderAlertas();}
+
 function renderAlertas(){
-  let al=DB.employees.filter(e=>e.estado==='Activo'&&alerta(e)).sort((a,b)=>(dv(a.fecha_fin_contrato)||9999)-(dv(b.fecha_fin_contrato)||9999));
+  // Populate area combo
+  let areaEl=document.getElementById('al-fil-area');
+  if(areaEl){let av=areaEl.value;let areas=[...new Set(DB.employees.filter(e=>e.estado==='Activo').map(e=>e.area).filter(Boolean))].sort();areaEl.innerHTML='<option value="">Todas las áreas</option>'+areas.map(a=>`<option value="${a}"${a===av?' selected':''}>${a}</option>`).join('');}
+  // Populate tipo contrato combo
+  let tipoEl=document.getElementById('al-fil-tipo');
+  if(tipoEl){let tv=tipoEl.value;let tipos=[...new Set(DB.employees.filter(e=>e.estado==='Activo').map(e=>e.tipo_contrato).filter(Boolean))].sort();tipoEl.innerHTML='<option value="">Todos los contratos</option>'+tipos.map(t=>`<option value="${t}"${t===tv?' selected':''}>${t}</option>`).join('');}
+  // Read filters
+  let filtArea=document.getElementById('al-fil-area')?.value||'';
+  let filtTipo=document.getElementById('al-fil-tipo')?.value||'';
+  let filtAlerta=document.getElementById('al-fil-alerta')?.value||'';
+  let al=DB.employees.filter(e=>{
+    if(e.estado!=='Activo'||!alerta(e))return false;
+    if(filtArea&&e.area!==filtArea)return false;
+    if(filtTipo&&e.tipo_contrato!==filtTipo)return false;
+    if(filtAlerta&&alerta(e)!==filtAlerta)return false;
+    return true;
+  }).sort((a,b)=>(dv(a.fecha_fin_contrato)||9999)-(dv(b.fecha_fin_contrato)||9999));
   let v=al.filter(e=>alerta(e)==='vencido').length,c=al.filter(e=>alerta(e)==='critico').length,u=al.filter(e=>alerta(e)==='urgente').length,p=al.filter(e=>alerta(e)==='proximo').length;
   document.getElementById('alertas-kpis').innerHTML=`
     <div class="kpi" style="--kc:var(--danger)"><div class="kl">Vencidos</div><div class="kv">${v}</div><div class="ks">Expirados</div></div>
@@ -1318,7 +1461,8 @@ function renderEmpleados(){
         <button class="btn bs bsm" onclick="openDetalle(${e.id})">Ver</button>
         ${admin?`<button class="btn bs bsm" onclick="openEmpModal(${e.id})">Editar</button>`:''}
         ${admin&&al2?`<button class="btn br2 bsm" onclick="openRenovDirecta(${e.id})" title="Renovar">↺</button>`:''}
-        ${admin&&al2==='vencido'?`<button class="btn bd bsm" onclick="cesarEmpleado(${e.id})" title="Cesar empleado">✕</button>`:''}
+        ${admin&&al2==='vencido'?`<button class="btn bd bsm" onclick="cesarEmpleado(${e.id})" title="Cesar empleado">✕ Cesar</button>`:''}
+        ${admin&&e.estado==='Cesado'?`<button class="btn bg bsm" onclick="recontratarEmpleado(${e.id})" title="Recontratar">↩ Recontratar</button>`:''}
       </div></td>
     </tr>`;
   }).join('');
@@ -1545,17 +1689,22 @@ function confirmarRenov(){
 }
 
 // ─── PROYECTOS ────────────────────────────────────────────────────────────────
-function clearProyFil(){['proy-search','proy-fil-sector','proy-fil-est'].forEach(id=>{let el=document.getElementById(id);if(el)el.value='';});renderProyectos();}
+function clearProyFil(){['proy-search','proy-fil-sector','proy-fil-est','proy-fil-resp'].forEach(id=>{let el=document.getElementById(id);if(el)el.value='';});renderProyectos();}
 
 function renderProyectos(){
   let q=(document.getElementById('proy-search')?.value||'').toLowerCase();
   let sec=document.getElementById('proy-fil-sector')?.value||'';
   let est=document.getElementById('proy-fil-est')?.value||'';
+  let resp=document.getElementById('proy-fil-resp')?.value||'';
   let sEl=document.getElementById('proy-fil-sector');
   if(sEl){let sv=sEl.value;let sects=DB.maestras.sectores;sEl.innerHTML=`<option value="">Todos los sectores</option>`+sects.map(s=>`<option value="${s}"${s===sv?' selected':''}>${s}</option>`).join('');}
+  // Populate responsable combo
+  let rEl=document.getElementById('proy-fil-resp');
+  if(rEl){let rv=rEl.value;let resps=[...new Set(DB.projects.map(p=>p.gerente).filter(Boolean))].sort();rEl.innerHTML=`<option value="">Todos los responsables</option>`+resps.map(r=>`<option value="${r}"${r===rv?' selected':''}>${r}</option>`).join('');}
   let list=DB.projects.filter(p=>{
     if(sec&&p.sector!==sec)return false;
     if(est&&p.estado!==est)return false;
+    if(resp&&p.gerente!==resp)return false;
     if(q&&!`${p.codigo} ${p.nombre} ${p.cliente||''}`.toLowerCase().includes(q))return false;
     return true;
   });
@@ -1656,10 +1805,20 @@ function renderProgramacion(){
   if(selEl){let sv=selEl.value;selEl.innerHTML='<option value="">Todos los proyectos</option>'+DB.projects.filter(proyParaCombo).map(p=>`<option value="${p.id}"${p.id==sv?' selected':''}>${p.codigo} — ${p.nombre}</option>`).join('');}
   let pid=parseInt(document.getElementById('prog-proy')?.value)||0;
   let est=document.getElementById('prog-est')?.value||'';
+  let resp=document.getElementById('prog-resp')?.value||'';
+  let pDesde=document.getElementById('prog-desde')?.value||'';
+  let pHasta=document.getElementById('prog-hasta')?.value||'';
+  // Populate responsable combo for prog
+  let progRespEl=document.getElementById('prog-resp');
+  if(progRespEl){let rv=progRespEl.value;let resps=[...new Set(DB.projects.map(p=>p.gerente).filter(Boolean))].sort();progRespEl.innerHTML=`<option value="">Todos los responsables</option>`+resps.map(r=>`<option value="${r}"${r===rv?' selected':''}>${r}</option>`).join('');}
   let list=DB.projects.filter(p=>{
     if(pid&&p.id!==pid)return false;
     if(est&&p.estado!==est)return false;
+    if(resp&&p.gerente!==resp)return false;
     if(!p.fecha_inicio||!p.fecha_fin)return false;
+    // Date range: show projects that overlap the selected period
+    if(pDesde&&p.fecha_fin<pDesde)return false;
+    if(pHasta&&p.fecha_inicio>pHasta)return false;
     return true;
   });
 
@@ -1877,8 +2036,10 @@ function renderProgramacion(){
   let allList=DB.projects.filter(p=>{
     let pid2=parseInt(document.getElementById('prog-proy')?.value)||0;
     let est2=document.getElementById('prog-est')?.value||'';
+    let resp2=document.getElementById('prog-resp')?.value||'';
     if(pid2&&p.id!==pid2)return false;
     if(est2&&p.estado!==est2)return false;
+    if(resp2&&p.gerente!==resp2)return false;
     return true;
   });
   allList=sortRows(allList,'prog');
@@ -1899,7 +2060,84 @@ function renderProgramacion(){
 }
 
 // ─── ASIGNACIÓN DE RECURSOS ──────────────────────────────────────────────────
-function clearAsigFil(){['asig-proy','asig-emp'].forEach(id=>{let el=document.getElementById(id);if(el)el.value='';});renderAsignacion();}
+// ─── GRÁFICO PARTICIPACIÓN EMPLEADO ──────────────────────────────────────────
+function renderEmpParticipacion(){
+  let panel=document.getElementById('emp-chart-panel');
+  let repBtn=document.getElementById('btn-rep-emp');
+  if(!panel)return;
+  let eid=parseInt(document.getElementById('asig-emp')?.value)||0;
+  if(!eid){panel.style.display='none';if(repBtn)repBtn.style.display='none';return;}
+  let emp=DB.employees.find(e=>e.id===eid);
+  if(!emp){panel.style.display='none';return;}
+  if(repBtn)repBtn.style.display='inline-flex';
+  panel.style.display='block';
+
+  let filtDesde=document.getElementById('asig-desde')?.value||'';
+  let filtHasta=document.getElementById('asig-hasta')?.value||'';
+  let verHistorico=filtDesde||filtHasta;
+
+  let asigs=DB.assignments.filter(a=>{
+    if(a.empleado_id!==eid)return false;
+    if(filtDesde&&a.fecha_fin&&a.fecha_fin<filtDesde)return false;
+    if(filtHasta&&a.fecha_ini&&a.fecha_ini>filtHasta)return false;
+    return true;
+  });
+  let activas=asigs.filter(a=>dv(a.fecha_fin)>=0);
+  let visibles=verHistorico?asigs:activas;
+
+  let totalActivo=activas.reduce((s,a)=>s+a.pct,0);
+  let disponible=Math.max(0,100-totalActivo);
+  let loadColor=totalActivo>100?'var(--danger)':totalActivo>=90?'var(--warn)':totalActivo>=70?'var(--accent)':'var(--a3)';
+
+  panel.innerHTML=`
+    <div class="card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div class="ct2" style="margin-bottom:3px;">Participación — ${emp.apellidos}, ${emp.nombres}</div>
+          <div style="font-size:11px;color:var(--t3);">${emp.profesion||emp.cargo||'—'} · ${emp.codigo}${verHistorico?` · Período: ${filtDesde?fdd(filtDesde):'inicio'} → ${filtHasta?fdd(filtHasta):'hoy'}`:' · Solo activas'}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="text-align:center;background:var(--bg3);border-radius:8px;padding:8px 14px;">
+            <div style="font-size:22px;font-weight:800;color:${loadColor};">${totalActivo}%</div>
+            <div style="font-size:9px;color:var(--t3);">Carga activa</div>
+          </div>
+          <div style="text-align:center;background:var(--bg3);border-radius:8px;padding:8px 14px;">
+            <div style="font-size:22px;font-weight:800;color:var(--a2);">${visibles.length}</div>
+            <div style="font-size:9px;color:var(--t3);">${verHistorico?'En período':'Activas'}</div>
+          </div>
+          <div style="text-align:center;background:var(--bg3);border-radius:8px;padding:8px 14px;">
+            <div style="font-size:22px;font-weight:800;color:${disponible>=30?'var(--a3)':disponible>0?'var(--warn)':'var(--danger)'};">${disponible}%</div>
+            <div style="font-size:9px;color:var(--t3);">Disponible</div>
+          </div>
+        </div>
+      </div>
+      ${totalActivo>100?'<div class="alt alt-d" style="margin-bottom:10px;">🔴 SOBREASIGNADO: Carga total '+totalActivo+'% — supera el 100%. Revisar asignaciones.</div>':''}
+      ${totalActivo>=80&&totalActivo<=100?'<div class="alt alt-w" style="margin-bottom:10px;">🟠 Carga alta ('+totalActivo+'%) — disponible solo '+disponible+'%.</div>':''}
+      ${disponible>=30&&totalActivo<80?'<div class="alt alt-s" style="margin-bottom:10px;">🟢 Disponible: '+disponible+'% libre — puede asumir nuevos proyectos.</div>':''}
+      ${!visibles.length?'<div class="empty"><h3>Sin asignaciones'+(verHistorico?' en el período':' activas')+'</h3></div>':
+        '<div style="display:grid;gap:6px;">'+
+        visibles.sort((a,b)=>b.pct-a.pct).map(a=>{
+          let p=getProy(a.proyecto_id);
+          let isActive=dv(a.fecha_fin)>=0;
+          let isTerm=p&&ESTADOS_FIN_PROY.has(p.estado);
+          let bc=isTerm?'#94a3b8':isActive?'#10b981':'#3b82f6';
+          return'<div style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;">'+
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'+
+              '<div><span style="font-size:11px;font-weight:700;color:var(--accent);">'+(p?p.codigo:'—')+'</span>'+
+              '<span style="font-size:11px;color:var(--text);margin-left:6px;">'+(p?p.nombre.slice(0,35):'—')+'</span>'+
+              (isTerm?'<span style="font-size:9px;background:var(--bg3);color:var(--t3);border-radius:4px;padding:1px 5px;margin-left:4px;">'+p.estado+'</span>':'')+'</div>'+
+              '<span style="font-size:15px;font-weight:800;color:'+bc+';">'+a.pct+'%</span></div>'+
+            '<div style="background:var(--bg3);border-radius:4px;height:10px;overflow:hidden;margin-bottom:4px;">'+
+              '<div style="height:100%;width:'+a.pct+'%;background:'+bc+';border-radius:4px;"></div></div>'+
+            '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3);">'+
+              '<span>'+a.puesto+'</span><span>'+(p?p.gerente||'—':'—')+'</span><span>'+fdd(a.fecha_ini)+' → '+fdd(a.fecha_fin)+'</span></div>'+
+          '</div>';
+        }).join('')+'</div>'
+      }
+    </div>`;
+}
+
+function clearAsigFil(){['asig-proy','asig-emp','asig-resp','asig-desde','asig-hasta'].forEach(id=>{let el=document.getElementById(id);if(el)el.value='';});let rb=document.getElementById('btn-rep-emp');if(rb)rb.style.display='none';renderAsignacion();renderEmpParticipacion();}
 
 function renderAsignacion(){
   let pEl=document.getElementById('asig-proy');
@@ -1908,7 +2146,27 @@ function renderAsignacion(){
   if(eEl){let ev=eEl.value;eEl.innerHTML='<option value="">Todos los empleados</option>'+DB.employees.filter(e=>e.estado==='Activo').map(e=>`<option value="${e.id}"${e.id==ev?' selected':''}>${e.apellidos}, ${e.nombres}</option>`).join('')+DB.employees.filter(e=>e.estado==='Inactivo').map(e=>`<option value="${e.id}" disabled style="color:var(--t3)"${e.id==ev?' selected':''}>${e.apellidos}, ${e.nombres} [${e.estado}]</option>`).join('');}
   let pid=parseInt(pEl?.value)||0;
   let eid=parseInt(eEl?.value)||0;
-  let list=DB.assignments.filter(a=>{if(pid&&a.proyecto_id!==pid)return false;if(eid&&a.empleado_id!==eid)return false;return true;});
+  let resp=document.getElementById('asig-resp')?.value||'';
+  // Populate responsable combo for asig
+  let asigRespEl=document.getElementById('asig-resp');
+  if(asigRespEl){let rv=asigRespEl.value;let resps=[...new Set(DB.projects.map(p=>p.gerente).filter(Boolean))].sort();asigRespEl.innerHTML=`<option value="">Todos los responsables</option>`+resps.map(r=>`<option value="${r}"${r===rv?' selected':''}>${r}</option>`).join('');}
+  let list=DB.assignments.filter(a=>{
+    if(pid&&a.proyecto_id!==pid)return false;
+    if(eid&&a.empleado_id!==eid)return false;
+    if(resp){let p=getProy(a.proyecto_id);if(!p||p.gerente!==resp)return false;}
+    // Ocultar asignaciones de proyectos terminados (salvo filtro por fecha)
+    let filtDesde=document.getElementById('asig-desde')?.value||'';
+    let filtHasta=document.getElementById('asig-hasta')?.value||'';
+    let verHistorico=filtDesde||filtHasta;
+    if(!verHistorico){
+      let p=getProy(a.proyecto_id);
+      if(p&&ESTADOS_FIN_PROY.has(p.estado))return false;
+    }
+    // Date range filter
+    if(filtDesde&&a.fecha_fin&&a.fecha_fin<filtDesde)return false;
+    if(filtHasta&&a.fecha_ini&&a.fecha_ini>filtHasta)return false;
+    return true;
+  });
 
   // Resumen asignaciones
   let activas=DB.assignments.filter(a=>dv(a.fecha_fin)>=0);
@@ -1974,6 +2232,183 @@ function renderAsignacion(){
 }
 
 // ─── MODAL ASIGNACIÓN ────────────────────────────────────────────────────────
+// ─── VALIDACIÓN FECHAS ASIGNACIÓN ────────────────────────────────────────────
+function onProyChange(){
+  let pid=parseInt(document.getElementById('a-proy')?.value)||0;
+  let infoEl=document.getElementById('a-proy-info');
+  let iniEl=document.getElementById('a-ini');
+  let finEl=document.getElementById('a-fin');
+  if(!pid){
+    if(infoEl)infoEl.style.display='none';
+    if(iniEl){iniEl.removeAttribute('min');iniEl.removeAttribute('max');}
+    if(finEl){finEl.removeAttribute('min');finEl.removeAttribute('max');}
+    return;
+  }
+  let p=DB.projects.find(x=>x.id===pid);
+  if(!p||!p.fecha_inicio||!p.fecha_fin){
+    if(infoEl)infoEl.style.display='none';
+    return;
+  }
+  // Set min/max on date inputs
+  if(iniEl){iniEl.min=p.fecha_inicio;iniEl.max=p.fecha_fin;}
+  if(finEl){finEl.min=p.fecha_inicio;finEl.max=p.fecha_fin;}
+  // Show info panel
+  if(infoEl){
+    let dur=Math.round((new Date(p.fecha_fin+'T00:00:00')-new Date(p.fecha_inicio+'T00:00:00'))/864e5);
+    infoEl.style.display='block';
+    infoEl.innerHTML=`<span style="font-weight:700;color:var(--a2);">📅 Vigencia del proyecto:</span>
+      <span style="margin-left:6px;">${fdd(p.fecha_inicio)} → ${fdd(p.fecha_fin)}</span>
+      <span style="margin-left:8px;color:var(--t3);">(${dur} días)</span>
+      <span style="margin-left:8px;font-weight:600;color:var(--text);">${p.estado}</span>`;
+  }
+  // If dates are already filled, re-validate them
+  if(iniEl?.value||finEl?.value) validateAsigFechas();
+}
+
+function onEmpChange(){
+  let eid=parseInt(document.getElementById('a-emp')?.value)||0;
+  let infoEl=document.getElementById('a-emp-info');
+  if(!infoEl)return;
+  if(!eid){infoEl.style.display='none';return;}
+  let e=DB.employees.find(x=>x.id===eid);
+  if(!e){infoEl.style.display='none';return;}
+  let fin=e.fecha_fin_contrato;
+  if(!fin){
+    infoEl.style.display='block';
+    infoEl.style.borderLeftColor='var(--a3)';
+    infoEl.innerHTML=`<span style="font-weight:700;color:var(--a3);">✓ Contrato Indefinido</span>
+      <span style="margin-left:8px;color:var(--t2);">${e.tipo_contrato||'Sin especificar'}</span>`;
+  } else {
+    let diasContrato=dv(fin);
+    let color=diasContrato<0?'var(--danger)':diasContrato<=30?'var(--warn)':diasContrato<=60?'var(--accent)':'var(--a3)';
+    let icon=diasContrato<0?'🔴':diasContrato<=30?'🟠':diasContrato<=60?'🟡':'🟢';
+    let label=diasContrato<0?'VENCIDO':diasContrato<=30?'CRÍTICO':diasContrato<=60?'PRÓXIMO':'Vigente';
+    infoEl.style.display='block';
+    infoEl.style.borderLeftColor=color;
+    infoEl.innerHTML=`<span style="font-weight:700;color:${color};">${icon} Contrato ${label}</span>
+      <span style="margin-left:8px;color:var(--t2);">Vence: <strong>${fdd(fin)}</strong></span>
+      <span style="margin-left:8px;color:var(--t3);">${e.tipo_contrato||''}</span>
+      ${diasContrato!==null&&diasContrato>=0?`<span style="margin-left:8px;color:${color};">(${diasContrato} días restantes)</span>`:''}`;
+  }
+  // Re-run date warning check if dates are filled
+  let finAsig=document.getElementById('a-fin')?.value;
+  if(finAsig) checkAsigDateWarning();
+}
+
+function checkAsigDateWarning(){
+  let pid=parseInt(document.getElementById('a-proy')?.value)||0;
+  let ini=document.getElementById('a-ini')?.value;
+  let fin=document.getElementById('a-fin')?.value;
+  let warnEl=document.getElementById('a-date-warn');
+  if(!warnEl)return;
+  if(!pid||!ini||!fin){warnEl.style.display='none';return;}
+  let p=DB.projects.find(x=>x.id===pid);
+  if(!p||!p.fecha_inicio||!p.fecha_fin){warnEl.style.display='none';return;}
+  let pIni=new Date(p.fecha_inicio+'T00:00:00');
+  let pFin=new Date(p.fecha_fin+'T00:00:00');
+  let aIni=new Date(ini+'T00:00:00');
+  let aFin=new Date(fin+'T00:00:00');
+  let msgs=[];
+  let warnClass='alt-w';
+  if(aIni<pIni) msgs.push(`Proyecto inicia ${fdd(p.fecha_inicio)}`);
+  if(aFin>pFin) msgs.push(`Proyecto termina ${fdd(p.fecha_fin)}`);
+  if(aIni>aFin) msgs.push('Inicio posterior al Fin');
+
+  // ── Check employee contract dates ─────────────────────────────
+  let eid=parseInt(document.getElementById('a-emp')?.value)||0;
+  if(eid){
+    let emp=DB.employees.find(x=>x.id===eid);
+    if(emp&&emp.fecha_fin_contrato){
+      let cFin=new Date(emp.fecha_fin_contrato+'T00:00:00');
+      let diasHastaVenc=Math.round((cFin-aFin)/864e5);
+      if(aFin>cFin){
+        // Assignment end is AFTER contract end → CRITICAL
+        let diasExcede=Math.round((aFin-cFin)/864e5);
+        msgs.push(`Contrato vence ${fdd(emp.fecha_fin_contrato)} — asignación excede por ${diasExcede} días. Debe renovar el contrato.`);
+        warnClass='alt-d';
+      } else if(diasHastaVenc>0&&diasHastaVenc<30){
+        // Assignment end is within 30 days of contract end (but not same day) → WARNING
+        msgs.push(`Contrato vence ${fdd(emp.fecha_fin_contrato)} (${Math.round((cFin-aFin)/864e5)} días antes del fin asignación). Ampliar contrato con ≥30 días de anticipación.`);
+        if(warnClass!=='alt-d') warnClass='alt-w';
+      }
+    }
+  }
+
+  if(msgs.length){
+    warnEl.style.display='block';
+    warnEl.innerHTML=`<div class="alt ${warnClass}" style="margin:0;font-size:11px;line-height:1.6;">⚠ ${msgs.join('<br>⚠ ')}</div>`;
+  } else {
+    warnEl.style.display='none';
+  }
+}
+
+function validateAsigFechas(){
+  let pid=parseInt(document.getElementById('a-proy')?.value)||0;
+  let ini=document.getElementById('a-ini')?.value;
+  let fin=document.getElementById('a-fin')?.value;
+  if(!pid||!ini||!fin)return true;
+  let p=DB.projects.find(x=>x.id===pid);
+  if(!p||!p.fecha_inicio||!p.fecha_fin)return true;
+  let pIni=new Date(p.fecha_inicio+'T00:00:00');
+  let pFin=new Date(p.fecha_fin+'T00:00:00');
+  let aIni=new Date(ini+'T00:00:00');
+  let aFin=new Date(fin+'T00:00:00');
+  let errors=[];
+  let warnings=[];
+
+  // ── Project date validation (BLOCKING) ─────────────────────────
+  if(aIni<pIni) errors.push(`• Inicio (${fdd(ini)}) anterior al inicio del proyecto (${fdd(p.fecha_inicio)})`);
+  if(aFin>pFin) errors.push(`• Fin (${fdd(fin)}) excede el fin del proyecto (${fdd(p.fecha_fin)})`);
+  if(aIni>aFin) errors.push(`• La fecha de inicio es posterior a la fecha de fin`);
+
+  // ── Employee contract validation (WARNING — allows save with alert) ──
+  let eid=parseInt(document.getElementById('a-emp')?.value)||0;
+  let emp=eid?DB.employees.find(x=>x.id===eid):null;
+  let contractWarning=null;
+  if(emp&&emp.fecha_fin_contrato){
+    let cFin=new Date(emp.fecha_fin_contrato+'T00:00:00');
+    let diasHastaVenc=Math.round((cFin-aFin)/864e5);
+    if(aFin>cFin){
+      let diasExcede=Math.round((aFin-cFin)/864e5);
+      // Recommend contract renewal date = assignment end + 30 days buffer
+      let recomFin=new Date(aFin);recomFin.setDate(recomFin.getDate()+30);
+      contractWarning={
+        tipo:'vencido',
+        msg:`El fin de asignación (${fdd(fin)}) supera el vencimiento del contrato de ${emp.apellidos}, ${emp.nombres} (${fdd(emp.fecha_fin_contrato)}) en ${diasExcede} día${diasExcede!==1?'s':''}.`,
+        recom:`Se recomienda renovar el contrato hasta al menos el ${fdd(fd(recomFin))} (fin de asignación + 30 días de anticipación mínima).`
+      };
+    } else if(diasHastaVenc>0&&diasHastaVenc<30){
+      let recomFin=new Date(aFin);recomFin.setDate(recomFin.getDate()+30);
+      contractWarning={
+        tipo:'proximo',
+        msg:`El contrato de ${emp.apellidos}, ${emp.nombres} vence ${fdd(emp.fecha_fin_contrato)}, solo ${diasHastaVenc} día${diasHastaVenc!==1?'s':''} antes del fin de la asignación (${fdd(fin)}).`,
+        recom:`Se recomienda renovar el contrato hasta al menos el ${fdd(fd(recomFin))} (30 días de anticipación mínima al fin de asignación).`
+      };
+    }
+  }
+
+  // ── Project errors: BLOCK save ──────────────────────────────────
+  if(errors.length){
+    alert('⚠ No se puede guardar — fechas fuera del período del proyecto:\n\n'+errors.join('\n')+'\n\nPeríodo: '+fdd(p.fecha_inicio)+' → '+fdd(p.fecha_fin));
+    return false;
+  }
+
+  // ── Contract warning: ALLOW save but show strong alert ──────────
+  if(contractWarning){
+    let icon=contractWarning.tipo==='vencido'?'🔴':'🟡';
+    let confirmed=confirm(
+      icon+' ALERTA DE CONTRATO\n\n'+
+      contractWarning.msg+'\n\n'+
+      '📋 '+contractWarning.recom+'\n\n'+
+      '¿Deseas guardar la asignación de todas formas?\n'+
+      '(Recuerda renovar el contrato antes de la fecha indicada)'
+    );
+    if(!confirmed)return false;
+  }
+
+  return true;
+}
+
 function openAsigModal(id){
   DB.editAsigId=id;
   document.getElementById('btn-del-asig').style.display=id?'inline-flex':'none';
@@ -1991,6 +2426,7 @@ function openAsigModal(id){
     let a=DB.assignments.find(x=>x.id===id);
     document.getElementById('m-asig-t').textContent='Editar Asignación';
     pSel.value=a.proyecto_id;
+    setTimeout(()=>{onProyChange();onEmpChange();},10);
     document.getElementById('a-puesto').value=a.puesto;
     eSel.value=a.empleado_id;
     document.getElementById('a-pct').value=a.pct;
@@ -2000,6 +2436,10 @@ function openAsigModal(id){
   } else {
     document.getElementById('m-asig-t').textContent='Nueva Asignación';
     ['a-puesto','a-pct','a-ini','a-fin','a-obs'].forEach(id2=>{let el=document.getElementById(id2);if(el)el.value='';});
+    let infoEl=document.getElementById('a-proy-info');if(infoEl)infoEl.style.display='none';
+    let empInfoEl=document.getElementById('a-emp-info');if(empInfoEl)empInfoEl.style.display='none';
+    let iniEl=document.getElementById('a-ini');if(iniEl){iniEl.removeAttribute('min');iniEl.removeAttribute('max');}
+    let finEl=document.getElementById('a-fin');if(finEl){finEl.removeAttribute('min');finEl.removeAttribute('max');}
   }
   openM('m-asig');
 }
@@ -2016,6 +2456,8 @@ function saveAsig(){
   let fin=document.getElementById('a-fin').value;
   if(!pid||!pue||!eid||!pct||!ini||!fin){alert('Todos los campos marcados con * son requeridos.');return;}
   if(pct<1||pct>100){alert('El porcentaje debe estar entre 1 y 100.');return;}
+  // ── Validar que las fechas estén dentro del período del proyecto ──
+  if(!validateAsigFechas())return;
   let data={proyecto_id:pid,empleado_id:eid,puesto:pue,pct,fecha_ini:ini,fecha_fin:fin,obs:document.getElementById('a-obs').value.trim()};
   if(DB.editAsigId){let i=DB.assignments.findIndex(a=>a.id===DB.editAsigId);if(i>=0)DB.assignments[i]={...DB.assignments[i],...data};}
   else DB.assignments.push({id:DB.nextAsigId++,...data});
@@ -2435,6 +2877,92 @@ function exportarProyectos(){
   let wb2=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb2,ws2,'Proyectos');XLSX.writeFile(wb2,'SIGRAL_proyectos_'+fd(new Date())+'.xlsx');
 }
 
+function exportarReporteEmpleado(){
+  let eid=parseInt(document.getElementById('asig-emp')?.value)||0;
+  if(!eid){alert('Selecciona un empleado para generar el reporte.');return;}
+  let emp=DB.employees.find(e=>e.id===eid);
+  if(!emp)return;
+  let filtDesde=document.getElementById('asig-desde')?.value||'';
+  let filtHasta=document.getElementById('asig-hasta')?.value||'';
+
+  let asigs=DB.assignments.filter(a=>{
+    if(a.empleado_id!==eid)return false;
+    if(filtDesde&&a.fecha_fin&&a.fecha_fin<filtDesde)return false;
+    if(filtHasta&&a.fecha_ini&&a.fecha_ini>filtHasta)return false;
+    return true;
+  }).sort((a,b)=>(a.fecha_ini||'').localeCompare(b.fecha_ini||''));
+
+  let wb2=XLSX.utils.book_new();
+  let today=fd(new Date());
+
+  // Sheet 1: Employee data
+  let empData=[
+    ['REPORTE HISTÓRICO DE ASIGNACIONES A PROYECTOS','','','','','',''],
+    ['','','','','','',''],
+    ['DATOS DEL EMPLEADO','','','','','',''],
+    ['Código',emp.codigo,'','Profesión',emp.profesion||'—','',''],
+    ['Apellidos y Nombres',emp.apellidos+', '+emp.nombres,'','Cargo',emp.cargo||'—','',''],
+    ['DNI',emp.dni||'—','','Área',emp.area||'—','',''],
+    ['Estado',emp.estado,'','Tipo Contrato',emp.tipo_contrato||'—','',''],
+    ['Fecha Ingreso',emp.fecha_ingreso||'—','','Venc. Contrato',emp.fecha_fin_contrato||'Indefinido','',''],
+    ['','','','','','',''],
+    ['Reporte generado',today,'','Período',(filtDesde?fdd(filtDesde):'Todos')+' → '+(filtHasta?fdd(filtHasta):'Todos'),'',''],
+    ['','','','','','',''],
+    ['HISTORIAL DE ASIGNACIONES A PROYECTOS','','','','','',''],
+    ['','','','','','',''],
+  ];
+
+  let hAsig=['N°','Período de Asignación','N° Proyecto','Nombre del Proyecto','Puesto / Rol','% Participación','Jefe de Proyecto','Estado Proyecto','Duración (días)','Observaciones'];
+  let rAsig=asigs.map((a,i)=>{
+    let p=getProy(a.proyecto_id);
+    let dur=a.fecha_ini&&a.fecha_fin?Math.round((new Date(a.fecha_fin+'T00:00:00')-new Date(a.fecha_ini+'T00:00:00'))/864e5):'—';
+    return[
+      i+1,
+      (fdd(a.fecha_ini)||'—')+' → '+(fdd(a.fecha_fin)||'—'),
+      p?p.codigo:'—',
+      p?p.nombre:'—',
+      a.puesto||'—',
+      a.pct+'%',
+      p?p.gerente||'—':'—',
+      p?p.estado:'—',
+      dur,
+      a.obs||''
+    ];
+  });
+
+  // Summary stats
+  let totalDias=asigs.filter(a=>a.fecha_ini&&a.fecha_fin).reduce((s,a)=>s+Math.round((new Date(a.fecha_fin+'T00:00:00')-new Date(a.fecha_ini+'T00:00:00'))/864e5),0);
+  let proyUnicos=[...new Set(asigs.map(a=>a.proyecto_id))].length;
+
+  let rSum=[
+    ['','','','','','','','','',''],
+    ['RESUMEN','','','','','','','','',''],
+    ['Total asignaciones',asigs.length,'','Proyectos distintos',proyUnicos,'','','','',''],
+    ['Total días trabajados',totalDias,'','Promedio % participación',asigs.length?Math.round(asigs.reduce((s,a)=>s+a.pct,0)/asigs.length)+'%':'—','','','','',''],
+  ];
+
+  // Contract history if exists
+  let histContratos=emp.historial_contratos||emp.historial||[];
+  let histBlock=[];
+  if(histContratos.length){
+    histBlock=[['','','','','','','','','',''],['HISTORIAL DE CONTRATOS','','','','','','','','','']];
+    histContratos.forEach(h=>{
+      if(h.tipo==='cese') histBlock.push(['CESE',h.fecha_cese||'','Contrato desde',h.fecha_ingreso_contrato||'—','hasta',h.fecha_fin_contrato||'—','Tipo',h.tipo_contrato||'—','','']);
+      else if(h.tipo==='recontratacion') histBlock.push(['RECONTRATACIÓN',h.fecha_recontratacion||'','','','','','','','','']);
+      else histBlock.push(['RENOVACIÓN',h.fecha||'','Fin anterior',h.fin_anterior||'—','Nueva fin',h.nueva_fin||'—','Tipo',h.tipo||'—','','']);
+    });
+  }
+
+  let allRows=[...empData, hAsig, ...rAsig, ...rSum, ...histBlock];
+  let ws1=XLSX.utils.aoa_to_sheet(allRows);
+  ws1['!cols']=[{wch:5},{wch:28},{wch:12},{wch:40},{wch:28},{wch:14},{wch:28},{wch:14},{wch:14},{wch:28}];
+  // Merge title cell
+  ws1['!merges']=[{s:{r:0,c:0},e:{r:0,c:9}}];
+  XLSX.utils.book_append_sheet(wb2,ws1,'Historial de Proyectos');
+
+  XLSX.writeFile(wb2,'SIGRAL_Historial_'+emp.codigo+'_'+today+'.xlsx');
+}
+
 function exportarAsignaciones(){
   if(!DB.assignments.length){alert('No hay asignaciones para exportar.');return;}
   let h=['Codigo Proyecto','Proyecto','Codigo Empleado','Empleado','Profesion','Puesto en Proyecto','% Participacion','Fecha Inicio','Fecha Fin','Dias para Vencer','Alerta'];
@@ -2509,7 +3037,7 @@ function fillAllDropdowns(){
   }
   // Assignment form puesto is free text — no fillSelect needed
   // Filters
-  fillSelect('fil-est',       ['Activo','Inactivo','Retirado'],'Todos los estados','Activo');
+  fillSelect('fil-est',       ['Activo','Inactivo','Cesado','Retirado'],'Todos los estados','Activo');
   fillSelect('proy-fil-est',  m.estadosProyecto,'Todos los estados');
   fillSelect('prog-est',      m.estadosProyecto,'Todos los estados');
   fillSelect('proy-fil-sector',m.sectores,'Todos los sectores');
@@ -3005,18 +3533,65 @@ window.delEmp = async function(){
 function cesarEmpleado(empId){
   let e=DB.employees.find(x=>x.id===empId);
   if(!e)return;
-  if(!confirm(`¿Cesar a ${e.apellidos}, ${e.nombres}?\n\nEl empleado pasará a estado INACTIVO y no podrá asignarse a nuevos proyectos.\n\nPuedes reactivarlo editando su ficha posteriormente.`))return;
-  // Update locally
-  e.estado='Inactivo';
-  // Refresh UI immediately
+  let hoy=fd(new Date());
+  let confirmed=confirm(
+    '¿Cesar a '+e.apellidos+', '+e.nombres+'?\n\n'+
+    '→ Estado pasará a CESADO\n'+
+    '→ No podrá asignarse a nuevos proyectos\n'+
+    '→ Se guardará el historial de contratación\n'+
+    '→ Puede ser recontratado en el futuro\n\n'+
+    'Fecha de cese: '+fdd(hoy)
+  );
+  if(!confirmed)return;
+  // Save contract history record
+  if(!e.historial_contratos)e.historial_contratos=[];
+  e.historial_contratos.push({
+    tipo:'cese',
+    fecha_cese:hoy,
+    fecha_ingreso_contrato:e.fecha_ingreso||'',
+    fecha_fin_contrato:e.fecha_fin_contrato||'',
+    tipo_contrato:e.tipo_contrato||'',
+    cargo:e.cargo||'',
+    area:e.area||'',
+    salario:e.salario||null,
+    obs:'Cese voluntario/finalización de contrato'
+  });
+  e.estado='Cesado';
+  // Refresh UI
   renderEmpleados();
   if(document.getElementById('page-alertas').classList.contains('active'))renderAlertas();
   if(document.getElementById('page-dashboard').classList.contains('active'))renderDashboard();
-  toast(`✓ ${e.apellidos}, ${e.nombres} cesado y marcado como Inactivo`,'w');
-  // Persist to Supabase (if available)
+  fillAllDropdowns();
+  toast('✓ '+e.apellidos+', '+e.nombres+' cesado. Historial de contrato guardado.','w');
+  // Persist to Supabase
   if(typeof SB!=='undefined'){
-    SB.from('empleados').update({estado:'Inactivo'}).eq('id',empId)
-      .then(({error})=>{if(error)console.warn('Error cesando en Supabase:',error.message);});
+    SB.from('empleados').update({estado:'Cesado',historial_contratos:e.historial_contratos}).eq('id',empId)
+      .then(({error})=>{if(error)console.warn('Error cesando:',error.message);});
+  }
+}
+
+// Recontratar empleado cesado
+function recontratarEmpleado(empId){
+  let e=DB.employees.find(x=>x.id===empId);
+  if(!e)return;
+  let hoy=fd(new Date());
+  if(!confirm('¿Recontratar a '+e.apellidos+', '+e.nombres+'?\n\nEl empleado volverá a estado ACTIVO.\nRecuerda actualizar sus datos de contrato.'))return;
+  // Save recontract record
+  if(!e.historial_contratos)e.historial_contratos=[];
+  e.historial_contratos.push({
+    tipo:'recontratacion',
+    fecha_recontratacion:hoy,
+    obs:'Recontratación'
+  });
+  e.estado='Activo';
+  renderEmpleados();
+  fillAllDropdowns();
+  toast('✓ '+e.apellidos+', '+e.nombres+' recontratado como Activo.','s');
+  // Open modal to update contract
+  setTimeout(()=>openEmpModal(empId),500);
+  if(typeof SB!=='undefined'){
+    SB.from('empleados').update({estado:'Activo',historial_contratos:e.historial_contratos}).eq('id',empId)
+      .then(({error})=>{if(error)console.warn('Error recontratando:',error.message);});
   }
 }
 
@@ -3116,6 +3691,7 @@ window.saveAsig = async function(){
   let fin=document.getElementById('a-fin').value;
   if(!pid||!pue||!eid||!pct||!ini||!fin){toast('Todos los campos * son requeridos.','w');return;}
   if(pct<1||pct>100){toast('El porcentaje debe ser entre 1 y 100.','w');return;}
+  if(!validateAsigFechas())return;
 
   let payload={proyecto_id:pid,empleado_id:eid,puesto:pue,pct,
     fecha_ini:ini,fecha_fin:fin,obs:document.getElementById('a-obs').value.trim()};

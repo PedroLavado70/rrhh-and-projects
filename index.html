@@ -489,7 +489,7 @@ code{color:var(--a2);font-size:10px;}
     <div class="page" id="page-empleados">
       <div class="sr">
         <input class="fc" id="search-q" placeholder="Buscar nombre, DNI, cargo..." style="max-width:220px;" oninput="renderEmpleados()">
-        <select class="fc" id="fil-est" style="max-width:120px;" onchange="renderEmpleados()"><option value="">Todos</option><option value="Activo" selected>Activo</option><option value="Inactivo">Inactivo</option><option value="Cesado">Cesado</option><option value="Retirado">Retirado</option></select>
+        <select class="fc" id="fil-est" style="max-width:120px;" onchange="renderEmpleados()"><option value="">Todos</option><option value="Activo">Activo</option><option value="Inactivo">Inactivo</option><option value="Cesado">Cesado</option><option value="Retirado">Retirado</option></select>
         <select class="fc" id="fil-area" style="max-width:140px;" onchange="renderEmpleados()"><option value="">Todas las áreas</option></select>
         <select class="fc" id="fil-prof" style="max-width:150px;" onchange="renderEmpleados()"><option value="">Todas las profesiones</option></select>
         <button class="btn bs bsm" onclick="clearFilters()">Limpiar</button>
@@ -839,7 +839,7 @@ function fd(d){if(!d)return '';let dt=d instanceof Date?d:new Date(d);if(isNaN(d
 function fdd(s){if(!s)return '—';return new Date(s+'T00:00:00').toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric'});}
 function antig(s){if(!s)return 0;return Math.round((Date.now()-new Date(s+'T00:00:00'))/(365.25*864e5)*10)/10;}
 function dv(s){if(!s)return null;return Math.round((new Date(s+'T00:00:00')-Date.now())/864e5);}
-function alerta(e){let d=dv(e.fecha_fin_contrato);if(d===null)return null;if(d<0)return 'vencido';if(d<=15)return 'critico';if(d<=30)return 'urgente';if(d<=60)return 'proximo';return null;}
+function alerta(e){if(e.estado==='Retirado'||e.estado==='Cesado'||e.estado==='Inactivo')return null;let d=dv(e.fecha_fin_contrato);if(d===null)return null;if(d<0)return 'vencido';if(d<=15)return 'critico';if(d<=30)return 'urgente';if(d<=60)return 'proximo';return null;}
 function alertaAsig(a){let d=dv(a.fecha_fin);if(d===null)return null;if(d<0)return 'vencido';if(d<=15)return 'critico';if(d<=30)return 'urgente';return null;}
 function ac(a){return a==='vencido'?'var(--danger)':a==='critico'?'#f87171':a==='urgente'?'var(--warn)':'var(--accent)';}
 function aB(a,d){if(!a)return '';let lbl={vencido:'VENCIDO',critico:'CRÍTICO',urgente:'URGENTE',proximo:'PRÓXIMO'};let cls={vencido:'bvv',critico:'bcc',urgente:'buu',proximo:'bxx'};return `<span class="bpill ${cls[a]}">${lbl[a]}${a!=='vencido'&&d!==null?' ('+d+'d)':''}</span>`;}
@@ -873,6 +873,14 @@ function th$(tid,f,lbl){
 // ─── COMBO FILTER HELPERS ─────────────────────────────────────────────────────
 const ESTADOS_FIN_PROY = new Set(['Concluido','Suspendido','En Garantía','Paralizado','FINALIZADO','Finalizado','finalizado']);
 function proyParaCombo(p){ return !ESTADOS_FIN_PROY.has(p.estado); }
+// Returns true only if assignment is from active project + active employee + not ended
+function asigActiva(a){
+  let p=getProy(a.proyecto_id);
+  if(!p||ESTADOS_FIN_PROY.has(p.estado))return false;
+  let e=getEmp(a.empleado_id);
+  if(!e||e.estado==='Cesado'||e.estado==='Retirado')return false;
+  return dv(a.fecha_fin)>=0;
+}
 
 function pB(e){let m={Formulación:'bii',Licitación:'bvi2','En curso':'baa',Concluido:'bpu2',Suspendido:'brr'};return `<span class="bpill ${m[e]||'bii'}">${e}</span>`;}
 function sB(s){let m={Público:'sec-pub',Privado:'sec-pri',Minería:'sec-min',Energía:'sec-ene',Transporte:'sec-tra',Salud:'sec-sal',Educación:'sec-edu'};return `<span class="bpill ${m[s]||'sec-oth'}">${s||'—'}</span>`;}
@@ -1224,9 +1232,13 @@ function renderDashboard(){
 
   let en_curso=proys.filter(p=>p.estado==='En curso').length;
   let form=proys.filter(p=>p.estado==='Formulación'||p.estado==='Licitación').length;
+  let hoyKpi=new Date().setHours(0,0,0,0);
   let sin_rec=proys.filter(p=>{
+    if(ESTADOS_FIN_PROY.has(p.estado))return false;
+    // Skip projects ending today or already ended
+    if(p.fecha_fin){let pFinMs=new Date(p.fecha_fin+'T00:00:00').getTime();if(pFinMs<=hoyKpi)return false;}
     let asigActivas=DB.assignments.filter(a=>a.proyecto_id===p.id&&dv(a.fecha_fin)>=0).length;
-    return asigActivas<(p.recursos_req||0)&&!['Concluido','Suspendido','FINALIZADO','Finalizado'].includes(p.estado);
+    return asigActivas<(p.recursos_req||0);
   }).length;
 
   // ── Filter indicator banner ─────────────────────────────────────
@@ -1308,12 +1320,20 @@ function buildChartParticipacion(proys){
 
 function renderDashAsigAlert(proys){
   let proyIds=proys?new Set(proys.map(p=>p.id)):null;
+  let hoy=new Date();hoy.setHours(0,0,0,0);
   let porTerminar=DB.assignments.filter(a=>{
     let d=dv(a.fecha_fin);
-    if(d===null||d>30)return false;
+    // Only show assignments ending in the NEXT 30 days (d>=0 means not yet ended)
+    if(d===null||d<0||d>30)return false;
+    // Exclude if project is terminated
+    let p=getProy(a.proyecto_id);
+    if(!p||ESTADOS_FIN_PROY.has(p.estado))return false;
+    // Exclude if employee is no longer active
+    let e=getEmp(a.empleado_id);
+    if(!e||e.estado==='Cesado'||e.estado==='Retirado'||e.estado==='Inactivo')return false;
     if(proyIds&&!proyIds.has(a.proyecto_id))return false;
     return true;
-  }).sort((a,b)=>dv(a.fecha_fin)-dv(b.fecha_fin)).slice(0,5);
+  }).sort((a,b)=>dv(a.fecha_fin)-dv(b.fecha_fin)).slice(0,8);
   if(!porTerminar.length){document.getElementById('dash-asig-alert').innerHTML=`<div class="empty"><h3>Sin asignaciones por terminar</h3><p>No hay asignaciones en los próximos 30 días.</p></div>`;return;}
   document.getElementById('dash-asig-alert').innerHTML=porTerminar.map(a=>{
     let d=dv(a.fecha_fin);
@@ -1333,8 +1353,12 @@ function renderDashAsigAlert(proys){
 
 function renderDashProySinRec(proys){
   let proyList=proys||DB.projects;
+  let hoyMs=new Date().setHours(0,0,0,0);
   let sinRec=proyList.filter(p=>{
-    if(['Concluido','Suspendido','FINALIZADO','Finalizado'].includes(p.estado))return false;
+    // Exclude terminated states
+    if(ESTADOS_FIN_PROY.has(p.estado))return false;
+    // Exclude projects whose end date is today or already passed
+    if(p.fecha_fin){let pFinMs=new Date(p.fecha_fin+'T00:00:00').getTime();if(pFinMs<=hoyMs)return false;}
     let asigActivas=DB.assignments.filter(a=>a.proyecto_id===p.id&&dv(a.fecha_fin)>=0);
     return asigActivas.length<(p.recursos_req||1);
   });
@@ -1420,7 +1444,9 @@ function clearFilters(){['search-q','fil-area','fil-prof'].forEach(id=>{let el=d
 
 function renderEmpleados(){
   let q=(document.getElementById('search-q')?.value||'').toLowerCase();
-  let est=document.getElementById('fil-est')?.value||'';
+  let estRaw=document.getElementById('fil-est')?.value;
+  // '' means "Todos" (user explicitly chose Todos), undefined means not loaded yet
+  let est=estRaw===undefined?'Activo':estRaw;
   let area=document.getElementById('fil-area')?.value||'';
   let prof=document.getElementById('fil-prof')?.value||'';
   filteredEmps=DB.employees.filter(e=>{
@@ -2172,7 +2198,12 @@ function renderAsignacion(){
   let activas=DB.assignments.filter(a=>dv(a.fecha_fin)>=0);
   let asigRRes=document.getElementById('asig-resumen');
   if(asigRRes){
-    let pTotal=DB.projects.filter(p=>p.estado!=='Concluido'&&p.estado!=='Suspendido').length;
+    let hoyPT=new Date().setHours(0,0,0,0);
+    let pTotal=DB.projects.filter(p=>{
+      if(ESTADOS_FIN_PROY.has(p.estado))return false;
+      if(p.fecha_fin){let pFinMs=new Date(p.fecha_fin+'T00:00:00').getTime();if(pFinMs<=hoyPT)return false;}
+      return true;
+    }).length;
     let eAsig=[...new Set(activas.map(a=>a.empleado_id))].length;
     asigRRes.innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
@@ -2290,9 +2321,14 @@ function onEmpChange(){
       <span style="margin-left:8px;color:var(--t3);">${e.tipo_contrato||''}</span>
       ${diasContrato!==null&&diasContrato>=0?`<span style="margin-left:8px;color:${color};">(${diasContrato} días restantes)</span>`:''}`;
   }
+  // Set min date on a-ini to employee ingreso date
+  let iniEl=document.getElementById('a-ini');
+  if(iniEl&&emp&&emp.fecha_ingreso) iniEl.min=emp.fecha_ingreso;
+  else if(iniEl&&!emp) iniEl.removeAttribute('min');
   // Re-run date warning check if dates are filled
   let finAsig=document.getElementById('a-fin')?.value;
-  if(finAsig) checkAsigDateWarning();
+  let iniAsig=document.getElementById('a-ini')?.value;
+  if(finAsig||iniAsig) checkAsigDateWarning();
 }
 
 function checkAsigDateWarning(){
@@ -2318,18 +2354,27 @@ function checkAsigDateWarning(){
   let eid=parseInt(document.getElementById('a-emp')?.value)||0;
   if(eid){
     let emp=DB.employees.find(x=>x.id===eid);
-    if(emp&&emp.fecha_fin_contrato){
-      let cFin=new Date(emp.fecha_fin_contrato+'T00:00:00');
-      let diasHastaVenc=Math.round((cFin-aFin)/864e5);
-      if(aFin>cFin){
-        // Assignment end is AFTER contract end → CRITICAL
-        let diasExcede=Math.round((aFin-cFin)/864e5);
-        msgs.push(`Contrato vence ${fdd(emp.fecha_fin_contrato)} — asignación excede por ${diasExcede} días. Debe renovar el contrato.`);
-        warnClass='alt-d';
-      } else if(diasHastaVenc>0&&diasHastaVenc<30){
-        // Assignment end is within 30 days of contract end (but not same day) → WARNING
-        msgs.push(`Contrato vence ${fdd(emp.fecha_fin_contrato)} (${Math.round((cFin-aFin)/864e5)} días antes del fin asignación). Ampliar contrato con ≥30 días de anticipación.`);
-        if(warnClass!=='alt-d') warnClass='alt-w';
+    if(emp){
+      // ── Check start date vs employee ingreso date ──────────────
+      if(emp.fecha_ingreso&&ini){
+        let eIng=new Date(emp.fecha_ingreso+'T00:00:00');
+        if(aIni<eIng){
+          msgs.push(`Inicio (${fdd(ini)}) es anterior a la fecha de ingreso del empleado (${fdd(emp.fecha_ingreso)})`);
+          if(warnClass!=='alt-d') warnClass='alt-w';
+        }
+      }
+      // ── Check end date vs contract end ─────────────────────────
+      if(emp.fecha_fin_contrato){
+        let cFin=new Date(emp.fecha_fin_contrato+'T00:00:00');
+        let diasHastaVenc=Math.round((cFin-aFin)/864e5);
+        if(aFin>cFin){
+          let diasExcede=Math.round((aFin-cFin)/864e5);
+          msgs.push(`Contrato vence ${fdd(emp.fecha_fin_contrato)} — asignación excede por ${diasExcede} días. Debe renovar el contrato.`);
+          warnClass='alt-d';
+        } else if(diasHastaVenc>0&&diasHastaVenc<30){
+          msgs.push(`Contrato vence ${fdd(emp.fecha_fin_contrato)} (${Math.round((cFin-aFin)/864e5)} días antes del fin asignación). Ampliar contrato con ≥30 días de anticipación.`);
+          if(warnClass!=='alt-d') warnClass='alt-w';
+        }
       }
     }
   }
@@ -2387,9 +2432,19 @@ function validateAsigFechas(){
     }
   }
 
-  // ── Project errors: BLOCK save ──────────────────────────────────
+  // ── Employee ingreso date validation (BLOCKING) ─────────────────
+  let eid2=parseInt(document.getElementById('a-emp')?.value)||0;
+  let emp2=eid2?DB.employees.find(x=>x.id===eid2):null;
+  if(emp2&&emp2.fecha_ingreso&&ini){
+    let eIng=new Date(emp2.fecha_ingreso+'T00:00:00');
+    if(aIni<eIng){
+      errors.push(`• La fecha de inicio de asignación (${fdd(ini)}) es anterior a la fecha de ingreso del empleado ${emp2.apellidos}, ${emp2.nombres} (${fdd(emp2.fecha_ingreso)})`);
+    }
+  }
+
+  // ── Project + ingreso errors: BLOCK save ─────────────────────
   if(errors.length){
-    alert('⚠ No se puede guardar — fechas fuera del período del proyecto:\n\n'+errors.join('\n')+'\n\nPeríodo: '+fdd(p.fecha_inicio)+' → '+fdd(p.fecha_fin));
+    alert('⚠ No se puede guardar:\n\n'+errors.join('\n')+'\n\nPeríodo proyecto: '+fdd(p.fecha_inicio)+' → '+fdd(p.fecha_fin)+(emp2&&emp2.fecha_ingreso?'\nIngreso empleado: '+fdd(emp2.fecha_ingreso):''));
     return false;
   }
 

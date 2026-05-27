@@ -991,6 +991,11 @@ function applyRoleUI(){
   document.getElementById('nav-importar').classList.toggle('disabled',!a);
   document.getElementById('nav-maestras').classList.toggle('disabled',!a);
   document.getElementById('nav-usuarios').classList.toggle('disabled',!a);
+  // Hide salary-containing export buttons for non-admins
+  ['btn-exp-fil','btn-exp-all','btn-rep-emp'].forEach(id=>{
+    let el=document.getElementById(id);
+    if(el)el.style.display=a?'':'none';
+  });
 }
 
 // ─── NAVEGACIÓN ──────────────────────────────────────────────────────────────
@@ -1014,26 +1019,32 @@ function goPage(id,el){
   const titles={dashboard:'Dashboard',alertas:'Alertas de Contratos',empleados:'Empleados',importar:'Importar / Exportar',fichaproyectos:'Ficha de Proyectos',programacion:'Programación de Proyectos',asignacion:'Asignación de Recursos',maestras:'Tablas Maestras',usuarios:'Gestión de Usuarios'};
   document.getElementById('page-title').textContent=titles[id]||id;
   const XB='<button class="btn bs bsm" style="gap:4px;" ';  // export button base
+  const admin=isAdmin();
   const acts={
-    dashboard:(isAdmin()?`${XB}onclick="exportarDashboard()">↓ Excel Ejecutivo</button> `:'')
-      +`${XB}onclick="exportPDF('dashboard')">📄 PDF Ejecutivo</button> `
-      +(isAdmin()?`<button class="btn bp" onclick="openEmpModal(null)">+ Empleado</button>
+    // Dashboard: PDF always available; Excel Ejecutivo (con datos financieros) solo admin
+    dashboard:(admin?`${XB}onclick="exportarDashboard()">↓ Excel Ejecutivo</button> `:'')
+      +`${XB}onclick="exportPDF('dashboard')">📄 PDF</button> `
+      +(admin?`<button class="btn bp" onclick="openEmpModal(null)">+ Empleado</button>
       <button class="btn bpu bsm" onclick="openProyModal(null)">+ Proyecto</button>`:''),
-    empleados:`${XB}onclick="exportarExcel('todos')">↓ Excel</button> `
-      +`${XB}onclick="exportarExcel('filtrado')">↓ Excel filtrado</button> `
+    // Empleados: admin exporta todo; viewer solo PDF de lo visible (sin salarios)
+    empleados:(admin?`${XB}onclick="exportarExcel('todos')">↓ Excel</button> `:'')
+      +(admin?`${XB}onclick="exportarExcel('filtrado')">↓ Excel filtrado</button> `:'')
       +`${XB}onclick="exportPDF('empleados')">📄 PDF</button> `
-      +(isAdmin()?`<button class="btn bp" onclick="openEmpModal(null)">+ Nuevo Empleado</button>`:''),
-    fichaproyectos:`${XB}onclick="exportarProyectos()">↓ Excel</button> `
+      +(admin?`<button class="btn bp" onclick="openEmpModal(null)">+ Nuevo Empleado</button>`:''),
+    // Proyectos: Excel (monto) solo admin; PDF para todos
+    fichaproyectos:(admin?`${XB}onclick="exportarProyectos()">↓ Excel</button> `:'')
       +`${XB}onclick="exportPDF('fichaproyectos')">📄 PDF</button> `
-      +(isAdmin()?`<button class="btn bpu" onclick="openProyModal(null)">+ Nuevo Proyecto</button>`:''),
-    programacion:`${XB}onclick="exportarProyectos()">↓ Excel</button> `
+      +(admin?`<button class="btn bpu" onclick="openProyModal(null)">+ Nuevo Proyecto</button>`:''),
+    programacion:(admin?`${XB}onclick="exportarProyectos()">↓ Excel</button> `:'')
       +`${XB}onclick="exportPDF('programacion')">📄 PDF</button>`,
+    // Asignaciones: Excel y PDF para todos (no contiene salarios)
     asignacion:`${XB}onclick="exportarAsignaciones()">↓ Excel</button> `
       +`${XB}onclick="exportPDF('asignacion')">📄 PDF</button> `
-      +(isAdmin()?`<button class="btn bp" onclick="openAsigModal(null)">+ Nueva Asignación</button>`:''),
-    alertas:`${XB}onclick="exportarExcel('alertas')">↓ Excel</button> `
-      +`${XB}onclick="exportPDF('alertas')">📄 PDF</button>`,
-    usuarios:isAdmin()?`<button class="btn bp" onclick="openUsrModal(null)">+ Nuevo Usuario</button>`:'',
+      +(admin?`<button class="btn bp" onclick="openAsigModal(null)">+ Nueva Asignación</button>`:''),
+    // Alertas: solo admin (contiene datos de contratos sensibles)
+    alertas:(admin?`${XB}onclick="exportarExcel('alertas')">↓ Excel</button> `:'')
+      +(admin?`${XB}onclick="exportPDF('alertas')">📄 PDF</button>`:''),
+    usuarios:admin?`<button class="btn bp" onclick="openUsrModal(null)">+ Nuevo Usuario</button>`:'',
     importar:'',maestras:'',
   };
   document.getElementById('topbar-actions').innerHTML=acts[id]||'';
@@ -2575,6 +2586,7 @@ function renderImportar(){
             <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px;text-align:center;">
               <div style="font-size:11px;font-weight:600;margin-bottom:5px;">Todos los proyectos</div>
               <button class="btn bpu bsm" style="width:100%;" onclick="exportarProyectos()">Descargar</button>
+              ${!isAdmin()?'<div style="font-size:9px;color:var(--t3);">ℹ Monto no incluido</div>':''}
             </div>
             <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px;text-align:center;">
               <div style="font-size:11px;font-weight:600;margin-bottom:5px;">Todas las asignaciones</div>
@@ -2823,6 +2835,8 @@ const PAGE_INFO = {
 };
 
 function exportPDF(pageId){
+  // Alertas page contains contract/salary context — admin only
+  if(pageId==='alertas'&&!isAdmin()){alert('Sin permisos: solo el administrador puede exportar alertas de contratos.');return;}
   let pg=document.getElementById('page-'+pageId);
   if(!pg){alert('Sección no encontrada.');return;}
   let pi=PAGE_INFO[pageId]||{title:pageId,sub:''};
@@ -2869,6 +2883,7 @@ function exportPDF(pageId){
 
 // Export dashboard summary to Excel
 function exportarDashboard(){
+  if(!isAdmin()){alert('Sin permisos: solo el administrador puede exportar el informe ejecutivo.');return;}
   let today=fd(new Date());
   let wb2=XLSX.utils.book_new();
   // Sheet 1: KPI Summary
@@ -2913,11 +2928,14 @@ function exportarDashboard(){
 }
 
 function exportarExcel(modo){
+  // Security: only admin can export employee Excel (contains salary and personal data)
+  if(!isAdmin()){alert('Sin permisos: solo el administrador puede exportar datos de empleados a Excel.');return;}
   let data,fn,today=fd(new Date());
   if(modo==='alertas'){data=DB.employees.filter(e=>e.estado==='Activo'&&alerta(e)).sort((a,b)=>(dv(a.fecha_fin_contrato)||9999)-(dv(b.fecha_fin_contrato)||9999));fn='SIGRAL_alertas_'+today+'.xlsx';}
   else if(modo==='filtrado'){data=filteredEmps&&filteredEmps.length?filteredEmps:DB.employees.filter(e=>e.estado==='Activo');fn='SIGRAL_filtrado_'+today+'.xlsx';}
   else{data=DB.employees;fn='SIGRAL_empleados_'+today+'.xlsx';}
   if(!data.length){alert('No hay datos para exportar.');return;}
+  // Admin: full export with salary and personal data
   let h=['Codigo','Nombres','Apellidos','DNI','Email','Telefono','Profesion','Especialidad','Cargo','Area','Tipo Contrato','Fecha Ingreso','Fin Contrato','Salario','Estado','Antiguedad (anos)','Dias para Vencer','Alerta','Observaciones'];
   let rows=data.map(e=>{let al2=alerta(e);let d2=dv(e.fecha_fin_contrato);return[e.codigo,e.nombres,e.apellidos,e.dni||'',e.email||'',e.telefono||'',e.profesion||'',e.especialidad||'',e.cargo||'',e.area||'',e.tipo_contrato||'',e.fecha_ingreso||'',e.fecha_fin_contrato||'',e.salario||'',e.estado,e.fecha_ingreso?antig(e.fecha_ingreso):'',d2!==null?d2:'',al2?{vencido:'VENCIDO',critico:'CRITICO',urgente:'URGENTE',proximo:'PROXIMO'}[al2]:'OK',e.observaciones||''];});
   let ws2=XLSX.utils.aoa_to_sheet([h,...rows]);ws2['!cols']=h.map(()=>({wch:16}));
@@ -2926,13 +2944,26 @@ function exportarExcel(modo){
 
 function exportarProyectos(){
   if(!DB.projects.length){alert('No hay proyectos para exportar.');return;}
-  let h=['Codigo','Proyecto','Cliente','Sector','Tipo Servicio','Estado','Fecha Inicio','Fecha Fin','Duracion (dias)','Monto (S/.)','Recursos Requeridos','Asignados Activos','Cobertura %','Ubicacion','Gerente','Descripcion'];
-  let rows=DB.projects.map(p=>{let asig=proyAsigs(p.id).filter(a=>dv(a.fecha_fin)>=0).length;let req=p.recursos_req||0;return[p.codigo,p.nombre,p.cliente||'',p.sector||'',p.tipo||'',p.estado,p.fecha_inicio,p.fecha_fin,p.fecha_inicio&&p.fecha_fin?Math.round((new Date(p.fecha_fin+'T00:00:00')-new Date(p.fecha_inicio+'T00:00:00'))/864e5):'',p.monto||'',req,asig,req>0?Math.round(asig/req*100):0,p.ubicacion||'',p.gerente||'',p.descripcion||''];});
+  // Admin: full export with monto; Viewer: no monto (financial data)
+  let adm=isAdmin();
+  let h=adm
+    ?['Codigo','Proyecto','Cliente','Sector','Tipo Servicio','Estado','Fecha Inicio','Fecha Fin','Duracion (dias)','Monto (S/.)','Recursos Requeridos','Asignados Activos','Cobertura %','Ubicacion','Gerente','Descripcion']
+    :['Codigo','Proyecto','Cliente','Sector','Tipo Servicio','Estado','Fecha Inicio','Fecha Fin','Duracion (dias)','Recursos Requeridos','Asignados Activos','Cobertura %','Ubicacion','Gerente','Descripcion'];
+  let rows=DB.projects.map(p=>{
+    let asig=proyAsigs(p.id).filter(a=>dv(a.fecha_fin)>=0).length;
+    let req=p.recursos_req||0;
+    let dur=p.fecha_inicio&&p.fecha_fin?Math.round((new Date(p.fecha_fin+'T00:00:00')-new Date(p.fecha_inicio+'T00:00:00'))/864e5):'';
+    let cob=req>0?Math.round(asig/req*100):0;
+    return adm
+      ?[p.codigo,p.nombre,p.cliente||'',p.sector||'',p.tipo||'',p.estado,p.fecha_inicio,p.fecha_fin,dur,p.monto||'',req,asig,cob,p.ubicacion||'',p.gerente||'',p.descripcion||'']
+      :[p.codigo,p.nombre,p.cliente||'',p.sector||'',p.tipo||'',p.estado,p.fecha_inicio,p.fecha_fin,dur,req,asig,cob,p.ubicacion||'',p.gerente||'',p.descripcion||''];
+  });
   let ws2=XLSX.utils.aoa_to_sheet([h,...rows]);ws2['!cols']=h.map(()=>({wch:18}));
   let wb2=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb2,ws2,'Proyectos');XLSX.writeFile(wb2,'SIGRAL_proyectos_'+fd(new Date())+'.xlsx');
 }
 
 function exportarReporteEmpleado(){
+  if(!isAdmin()){alert('Sin permisos: solo el administrador puede exportar reportes de empleados.');return;}
   let eid=parseInt(document.getElementById('asig-emp')?.value)||0;
   if(!eid){alert('Selecciona un empleado para generar el reporte.');return;}
   let emp=DB.employees.find(e=>e.id===eid);

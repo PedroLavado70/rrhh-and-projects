@@ -910,36 +910,7 @@ function simpleHash(str){
   return str; // Demo: store plain, compare plain (artifact is client-only)
 }
 
-function doLogin(){
-  let email=document.getElementById('login-email').value.trim().toLowerCase();
-  let pwd=document.getElementById('login-pwd').value;
-  let errEl=document.getElementById('login-error');
-  errEl.style.display='none';
-  if(!email||!pwd){errEl.textContent='Por favor completa email y contraseña.';errEl.style.display='block';return;}
-  let user=DB.users.find(u=>u.email.toLowerCase()===email&&u.active);
-  if(!user||user.pwdHash!==pwd){
-    errEl.textContent='Email o contraseña incorrectos. Verifica tus datos.';
-    errEl.style.display='block';
-    document.getElementById('login-pwd').value='';
-    document.getElementById('login-pwd').focus();
-    // Shake animation
-    let card=document.querySelector('.login-card');
-    card.style.animation='none';
-    card.offsetHeight;
-    card.style.animation='shake .4s ease';
-    return;
-  }
-  // Login successful
-  DB.currentUser={id:user.id,name:user.name,role:user.role};
-  document.getElementById('login-screen').classList.add('hidden');
-  fillAllDropdowns();
-  document.getElementById('login-email').value='';
-  document.getElementById('login-pwd').value='';
-  errEl.style.display='none';
-  updateUserUI();
-  applyRoleUI();
-  goPage('dashboard',document.querySelector('.na.active'));
-}
+function doLogin(){throw new Error('Supabase Auth required');}
 
 function doLogout(){
   if(!confirm('¿Cerrar sesión?'))return;
@@ -970,21 +941,7 @@ function resetChgPwd(){
   let msg=document.getElementById('cp-msg');if(msg)msg.innerHTML='';
 }
 
-function saveChgPwd(){
-  let actual=document.getElementById('cp-actual').value;
-  let nueva=document.getElementById('cp-nueva').value;
-  let confirm2=document.getElementById('cp-confirm').value;
-  let msg=document.getElementById('cp-msg');
-  msg.innerHTML='';
-  if(!actual||!nueva||!confirm2){msg.innerHTML='<div class="alt alt-w">Completa todos los campos.</div>';return;}
-  if(nueva.length<6){msg.innerHTML='<div class="alt alt-w">La nueva contraseña debe tener al menos 6 caracteres.</div>';return;}
-  if(nueva!==confirm2){msg.innerHTML='<div class="alt alt-w">Las contraseñas nuevas no coinciden.</div>';return;}
-  let user=DB.users.find(u=>u.id===DB.currentUser.id);
-  if(!user||user.pwdHash!==actual){msg.innerHTML='<div class="alt alt-d">La contraseña actual es incorrecta.</div>';return;}
-  user.pwdHash=nueva;
-  msg.innerHTML='<div class="alt alt-s">Contraseña actualizada correctamente.</div>';
-  setTimeout(()=>closeM('m-chgpwd'),1500);
-}
+function saveChgPwd(){throw new Error('Supabase Auth required');}
 function applyRoleUI(){
   let a=isAdmin();
   document.getElementById('nav-importar').classList.toggle('disabled',!a);
@@ -3429,7 +3386,7 @@ function refreshActive(){
 // ─── INIT (startup handled by Supabase layer below) ──────────────────────────
 function renderUsrPwdField(){
   let el=document.getElementById('u-pwd');
-  if(el)el.placeholder='Contraseña (dejar en blanco para no cambiar)';
+  if(el){el.disabled=true;el.placeholder='Administrar contraseña en Supabase Auth';}
 }
 </script>
 
@@ -3663,28 +3620,15 @@ function cesarEmpleado(empId){
 }
 
 // Recontratar empleado cesado
-function recontratarEmpleado(empId){
-  let e=DB.employees.find(x=>x.id===empId);
-  if(!e)return;
-  let hoy=fd(new Date());
-  if(!confirm('¿Recontratar a '+e.apellidos+', '+e.nombres+'?\n\nEl empleado volverá a estado ACTIVO.\nRecuerda actualizar sus datos de contrato.'))return;
-  // Save recontract record
-  if(!e.historial_contratos)e.historial_contratos=[];
-  e.historial_contratos.push({
-    tipo:'recontratacion',
-    fecha_recontratacion:hoy,
-    obs:'Recontratación'
-  });
-  e.estado='Activo';
-  renderEmpleados();
-  fillAllDropdowns();
-  toast('✓ '+e.apellidos+', '+e.nombres+' recontratado como Activo.','s');
-  // Open modal to update contract
-  setTimeout(()=>openEmpModal(empId),500);
-  if(typeof SB!=='undefined'){
-    SB.from('empleados').update({estado:'Activo',historial_contratos:e.historial_contratos}).eq('id',empId)
-      .then(({error})=>{if(error)console.warn('Error recontratando:',error.message);});
-  }
+async function recontratarEmpleado(empId){
+  const e=DB.employees.find(x=>x.id===empId);if(!e)return;
+  if(!confirm('¿Recontratar a '+e.apellidos+', '+e.nombres+'?\nSe conservará el historial y deberás actualizar su nuevo contrato.'))return;
+  const historial_contratos=[...(e.historial_contratos||[]),{tipo:'recontratacion',fecha_recontratacion:fd(new Date()),obs:'Reingreso — completar contrato vigente'}];
+  const {error}=await SB.from('empleados').update({estado:'Activo',historial_contratos}).eq('id',empId);
+  if(error){toast('Error al registrar reingreso: '+error.message,'d');return;}
+  e.historial_contratos=historial_contratos;e.estado='Activo';
+  renderEmpleados();fillAllDropdowns();toast('Reingreso registrado. Actualiza el contrato vigente.','s');
+  openEmpModal(empId);
 }
 
 
@@ -3692,19 +3636,18 @@ function recontratarEmpleado(empId){
 // Renovación de contrato — guarda historial y nueva fecha
 window.confirmarRenov = async function(){
   let e=DB.employees.find(x=>x.id===DB.renewEmpId);
-  let nuevaFin='';
-  if(DB.renewTab==='dias'){
+  const nuevoTipo=document.getElementById('rn-tipo-nuevo').value||e.tipo_contrato;
+  const indefinido=isIndefiniteContract(nuevoTipo);
+  let nuevaFin=null;
+  if(!indefinido && DB.renewTab==='dias'){
     let dias=parseInt(document.getElementById('rn-dias').value);
     if(!dias||dias<1){toast('Ingresa el plazo en días.','w');return;}
     nuevaFin=fd(ad(getRenewStart(),dias-1));
-  } else {
+  } else if(!indefinido) {
     nuevaFin=document.getElementById('rn-fecha').value;
     if(!nuevaFin){toast('Selecciona la nueva fecha.','w');return;}
     if(new Date(nuevaFin+'T00:00:00')<getRenewStart()){toast('La fecha debe ser posterior al inicio.','w');return;}
   }
-  let nuevoTipo=document.getElementById('rn-tipo-nuevo').value||e.tipo_contrato;
-  const indefinido=isIndefiniteContract(nuevoTipo);
-  if(indefinido)nuevaFin=null;
   const obs=document.getElementById('rn-obs').value.trim();
   const historial=[...(e.historial||[]),{fecha:fd(new Date()),fin_anterior:e.fecha_fin_contrato||null,nueva_fin:nuevaFin,tipo:nuevoTipo,obs}];
   const observaciones=obs?(e.observaciones?e.observaciones+' | ':'')+obs:(e.observaciones||'');
@@ -3903,110 +3846,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('login-email').focus();
 });
 
-/* ════════════════════════════════════════════════════════════════════════════
-   SQL PARA CREAR LAS TABLAS EN SUPABASE
-   Pega este bloque en el SQL Editor de tu proyecto Supabase
-   ════════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE IF NOT EXISTS empleados (
-  id              bigint generated always as identity primary key,
-  codigo          text unique not null,
-  nombres         text not null,
-  apellidos       text not null default '',
-  dni             text,
-  email           text,
-  telefono        text,
-  profesion       text,
-  especialidad    text,
-  cargo           text,
-  area            text,
-  tipo_contrato   text,
-  fecha_ingreso   date,
-  fecha_fin_contrato date,
-  salario         numeric(12,2),
-  estado          text default 'Activo',
-  observaciones   text,
-  historial       jsonb default '[]',
-  created_at      timestamptz default now()
-);
-
-CREATE TABLE IF NOT EXISTS proyectos (
-  id              bigint generated always as identity primary key,
-  codigo          text unique not null,
-  nombre          text not null,
-  cliente         text,
-  sector          text,
-  tipo            text,
-  estado          text default 'Formulacion',
-  fecha_inicio    date,
-  fecha_fin       date,
-  monto           numeric(16,2),
-  recursos_req    int default 0,
-  ubicacion       text,
-  gerente         text,
-  descripcion     text,
-  created_at      timestamptz default now()
-);
-
-CREATE TABLE IF NOT EXISTS asignaciones (
-  id              bigint generated always as identity primary key,
-  proyecto_id     bigint references proyectos(id) on delete cascade,
-  empleado_id     bigint references empleados(id) on delete cascade,
-  puesto          text,
-  pct             int default 100,
-  fecha_ini       date,
-  fecha_fin       date,
-  obs             text,
-  created_at      timestamptz default now()
-);
-
-CREATE TABLE IF NOT EXISTS usuarios (
-  id              bigint generated always as identity primary key,
-  name            text not null,
-  email           text unique not null,
-  pwd_hash        text not null,
-  role            text default 'viewer',
-  active          boolean default true,
-  created         date default now(),
-  created_at      timestamptz default now()
-);
-
--- Usuario administrador inicial (contraseña: sigral2024!)
-INSERT INTO usuarios (name,email,pwd_hash,role,active)
-VALUES ('Pedro Lavado','pedro@sigral.com','sigral2024!','admin',true)
-ON CONFLICT (email) DO NOTHING;
-
-CREATE TABLE IF NOT EXISTS maestras (
-  tabla   text primary key,
-  valores jsonb not null default '[]'
-);
-
--- Valores iniciales de tablas maestras
-INSERT INTO maestras (tabla,valores) VALUES
-('sectores','["Público","Privado","Minería","Energía","Transporte","Salud","Educación","Agua y Saneamiento","Industria","Agricultura","Otro"]'),
-('tiposServicio','["Supervisión de Obra","Gerencia de Proyecto","Ingeniería Básica","Ingeniería de Detalle","Consultoría","Expediente Técnico","Licitación","Estudios de Factibilidad","Otro"]'),
-('estadosProyecto','["Formulación","Licitación","En curso","Paralizado","Concluido","Suspendido","En Garantía"]'),
-('estadosEmpleado','["Activo","Inactivo","Retirado","Vacaciones","Licencia"]'),
-('tiposContrato','["Indefinido","Plazo Fijo","Por Obra","Honorarios","Practicante","CAS","Locación de Servicios","Tiempo Parcial"]'),
-('cargos','["Gerente de Proyectos","Jefe de Supervisión","Supervisor Residente","Especialista Estructural","Especialista Sanitario","Especialista Eléctrico","Especialista Vial","Especialista Ambiental","Especialista en Costos","Arquitecto Proyectista","Asistente de Ingeniería","Contador/a","Jefe Administrativo","Inspector de Obra","Técnico de Campo","Topógrafo"]'),
-('areas','["Dirección","Gerencia de Proyectos","Supervisión","Ingeniería","Licitaciones","Administración","Finanzas","Recursos Humanos","Logística","Legal","Sistemas"]'),
-('profesiones','["Ing. Civil","Ing. Sanitaria","Ing. Electromecánico","Ing. Eléctrico","Ing. Ambiental","Ing. Industrial","Arquitecto/a","Contador/a","Administrador/a","Abogado/a","Economista","Topógrafo/a","Técnico de Construcción","Otro"]')
-ON CONFLICT (tabla) DO NOTHING;
-
--- HABILITAR RLS y políticas de acceso (anon puede leer, autenticación por pwd_hash en app)
-ALTER TABLE empleados    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE proyectos    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE asignaciones ENABLE ROW LEVEL SECURITY;
-ALTER TABLE usuarios     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE maestras     ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "allow_all" ON empleados    FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all" ON proyectos    FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all" ON asignaciones FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all" ON usuarios     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all" ON maestras     FOR ALL USING (true) WITH CHECK (true);
-
-   ════════════════════════════════════════════════════════════════════════════ */
+/* SQL de seguridad y esquema disponibles en sql/ y docs/. */
 </script>
 </body>
 </html>

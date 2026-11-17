@@ -656,8 +656,8 @@ code{color:var(--a2);font-size:10px;}
         <div class="fg"><label class="fl">Estado</label>
           <select class="fc" id="p-est"><option value="">— Estado —</option></select>
         </div>
-        <div class="fg"><label class="fl">Fecha Inicio *</label><input class="fc" id="p-inicio" type="date"></div>
-        <div class="fg"><label class="fl">Fecha Fin *</label><input class="fc" id="p-fin" type="date"></div>
+        <div class="fg"><label class="fl">Fecha Inicio (si está definida)</label><input class="fc" id="p-inicio" type="date"></div>
+        <div class="fg"><label class="fl">Fecha Fin (si está definida)</label><input class="fc" id="p-fin" type="date"></div>
         <div class="fg"><label class="fl">Monto Contrato (S/.)</label><input class="fc" id="p-monto" type="number" step="0.01"></div>
         <div class="fg"><label class="fl">Recursos Requeridos (Puestos)</label><input class="fc" id="p-req" type="number" min="1" placeholder="Ej: 5"></div>
         <div class="fg"><label class="fl">Ubicación / Departamento</label><select class="fc" id="p-ubic"><option value="">— Departamento —</option></select></div>
@@ -3008,7 +3008,8 @@ function exportarReporteEmpleado(){
   if(histContratos.length){
     histBlock=[['','','','','','','','','',''],['HISTORIAL DE CONTRATOS','','','','','','','','','']];
     histContratos.forEach(h=>{
-      if(h.tipo==='cese') histBlock.push(['CESE',h.fecha_cese||'','Contrato desde',h.fecha_ingreso_contrato||'—','hasta',h.fecha_fin_contrato||'—','Tipo',h.tipo_contrato||'—','','']);
+      if(h.ref_excel) histBlock.push(['EXCEL: '+(h.tipo||'CONTRATO'),h.ref_excel,'Inicio',h.fecha_ingreso_contrato||'—','Fin',h.fecha_fin_contrato||'—','Estado',h.estado_excel||'—',h.motivo_cierre||'',h.observaciones||'']);
+      else if(h.tipo==='cese') histBlock.push(['CESE',h.fecha_cese||'','Contrato desde',h.fecha_ingreso_contrato||'—','hasta',h.fecha_fin_contrato||'—','Tipo',h.tipo_contrato||'—','','']);
       else if(h.tipo==='recontratacion') histBlock.push(['RECONTRATACIÓN',h.fecha_recontratacion||'','','','','','','','','']);
       else histBlock.push(['RENOVACIÓN',h.fecha||'','Fin anterior',h.fin_anterior||'—','Nueva fin',h.nueva_fin||'—','Tipo',h.tipo||'—','','']);
     });
@@ -3683,7 +3684,8 @@ window.saveProy = async function(){
   let nom=document.getElementById('p-nom').value.trim();
   let ini=document.getElementById('p-inicio').value;
   let fin=document.getElementById('p-fin').value;
-  if(!cod||!nom||!ini||!fin){toast('Código, nombre, fecha inicio y fin son requeridos.','w');return;}
+  if(!cod||!nom){toast('Código y nombre del proyecto son requeridos.','w');return;}
+  if(ini&&fin&&fin<ini){toast('La fecha de fin no puede ser anterior a la fecha de inicio.','w');return;}
   if(!DB.editProyId&&DB.projects.find(p=>p.codigo.toLowerCase()===cod.toLowerCase())){
     toast('⚠ Ya existe un proyecto con el código "'+cod+'". Usa un código diferente.','w');
     document.getElementById('p-cod').focus();return;
@@ -3695,7 +3697,7 @@ window.saveProy = async function(){
     sector:document.getElementById('p-sector').value,
     tipo:document.getElementById('p-tipo').value,
     estado:document.getElementById('p-est').value,
-    fecha_inicio:ini, fecha_fin:fin,
+    fecha_inicio:ini||null, fecha_fin:fin||null,
     monto:parseFloat(document.getElementById('p-monto').value)||null,
     recursos_req:parseInt(document.getElementById('p-req').value)||0,
     ubicacion:document.getElementById('p-ubic').value,

@@ -3426,7 +3426,18 @@ function showLoading(id){
 
 // ── AUTENTICACIÓN CONTRA SUPABASE tabla "usuarios" ────────────────────────────
 // Reemplaza doLogin() para autenticar contra Supabase
+// Impedir que una vista previa Netlify use por accidente la BD de producción.
+function isPreviewUsingProduction(){
+  const host=String(window.location?.hostname||'').toLowerCase();
+  return host.startsWith('deploy-preview-') &&
+    SUPABASE_URL.includes('amhkybyuwrolursgsicb.supabase.co');
+}
 window.doLogin=async function(){
+  if(isPreviewUsingProduction()){
+    const msg=document.getElementById('login-error');
+    msg.textContent='Preproducción no configurada: esta vista previa apunta a la base real. Configure un proyecto Supabase de ensayo antes de ingresar.';
+    msg.style.display='block';return;
+  }
   const email=document.getElementById('login-email').value.trim().toLowerCase(),pwd=document.getElementById('login-pwd').value,errEl=document.getElementById('login-error');
   errEl.style.display='none';if(!email||!pwd){errEl.textContent='Completa email y contraseña.';errEl.style.display='block';return;}
   try{

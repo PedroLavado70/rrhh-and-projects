@@ -1,7 +1,7 @@
 name: SIGRAL static safety checks
 on:
   push:
-    branches: [security/supabase-auth-staging, fix/rh001-indefinido-preproduccion]
+    branches: [main, security/supabase-auth-staging, fix/rh001-indefinido-preproduccion]
   pull_request:
     branches: [main]
 permissions:

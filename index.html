@@ -1523,7 +1523,7 @@ function openEmpModal(id){
     syncContractEndField();
     // El código no es el ID interno: continuar la secuencia EMP-0001 sin reutilizar números.
     const maxCodigo=DB.employees.reduce((max,e)=>{
-      const match=/^EMP-(\\d{4,})$/.exec(String(e.codigo||''));
+      const match=/^EMP-(\d{4,})$/.exec(String(e.codigo||''));
       return match?Math.max(max,Number(match[1])):max;
     },0);
     document.getElementById('f-cod').value='EMP-'+String(maxCodigo+1).padStart(4,'0');
@@ -3608,7 +3608,7 @@ window.saveEmp = async function(){
   if(DB.editEmpId){
     const previo=DB.employees.find(e=>e.id===DB.editEmpId);
     if(previo && cod!==previo.codigo){toast('No se permite modificar el código identificador de un empleado existente.','w');return;}
-  } else if(!/^EMP-\\d{4,}$/.test(cod)){
+  } else if(!/^EMP-\d{4,}$/.test(cod)){
     toast('El código de empleado debe tener el formato EMP-0001.','w');return;
   }
   let isNew=!DB.editEmpId;

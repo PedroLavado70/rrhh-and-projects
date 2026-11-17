@@ -1464,13 +1464,14 @@ function renderEmpleados(){
 // ─── MODAL EMPLEADO ──────────────────────────────────────────────────────────
 // RH-001: contratos indefinidos no tienen vencimiento; el cese es un evento distinto.
 function isIndefiniteContract(tipo){return String(tipo||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()==='indefinido';}
+function isFixedTermContract(tipo){return String(tipo||'').trim().toLowerCase()==='plazo fijo';}
 function syncContractEndField(){
   const tipo=document.getElementById('f-tipo'),fin=document.getElementById('f-fin');
   if(!tipo||!fin)return;
   const blocked=isIndefiniteContract(tipo.value);
   if(blocked)fin.value='';
   fin.disabled=blocked;
-  fin.required=!!tipo.value&&!blocked;
+  fin.required=isFixedTermContract(tipo.value);
   fin.title=blocked?'Contrato indefinido sin vencimiento. Registrar fecha de cese por separado.':'';
 }
 function openEmpModal(id){
@@ -1516,7 +1517,7 @@ function openEmpModal(id){
 function saveEmp(){
   const tipoContrato=document.getElementById('f-tipo').value;
   const fechaFin=isIndefiniteContract(tipoContrato)?'':document.getElementById('f-fin').value;
-  if(tipoContrato&&!isIndefiniteContract(tipoContrato)&&!fechaFin){alert('El contrato a plazo fijo requiere fecha de vencimiento.');return;}
+  if(isFixedTermContract(tipoContrato)&&!fechaFin){alert('El contrato a plazo fijo requiere fecha de vencimiento.');return;}
   let cod=document.getElementById('f-cod').value.trim();
   let nom=document.getElementById('f-nom').value.trim();
   let ape=document.getElementById('f-ape').value.trim();
@@ -3516,7 +3517,7 @@ function sbToAsig(r){
 window.saveEmp = async function(){
   const tipoContrato=document.getElementById('f-tipo').value;
   const fechaFin=isIndefiniteContract(tipoContrato)?null:(document.getElementById('f-fin').value||null);
-  if(tipoContrato&&!isIndefiniteContract(tipoContrato)&&!fechaFin){toast('El contrato a plazo fijo requiere fecha de vencimiento.','w');return;}
+  if(isFixedTermContract(tipoContrato)&&!fechaFin){toast('El contrato a plazo fijo requiere fecha de vencimiento.','w');return;}
   let cod=document.getElementById('f-cod').value.trim();
   let nom=document.getElementById('f-nom').value.trim();
   let ape=document.getElementById('f-ape').value.trim();
@@ -3543,6 +3544,10 @@ window.saveEmp = async function(){
     observaciones:document.getElementById('f-obs').value.trim(),
   };
 
+  const dniUnico=payload.dni?.trim();
+  if(dniUnico && DB.employees.some(e=>e.id!==DB.editEmpId&&String(e.dni||'').trim()===dniUnico)){
+    toast('El DNI ya está registrado. Revisa la ficha existente antes de crear un duplicado.','w');return;
+  }
   let isNew=!DB.editEmpId;
   let res;
   if(isNew){

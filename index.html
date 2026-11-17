@@ -1249,6 +1249,7 @@ function renderDashboard(){
   renderDashAsigAlert(proys);
   renderDashProySinRec(proys);
   renderDashAlertas(al);
+  window.sigralOperational?.render(DB);
 }
 
 function buildCharts(proys,emps){
@@ -3876,5 +3877,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 /* SQL de seguridad y esquema disponibles en sql/ y docs/. */
 </script>
 <script src="scripts/backup-local.js"></script>
+<script src="scripts/operational-dashboard.js"></script>
 </body>
 </html>

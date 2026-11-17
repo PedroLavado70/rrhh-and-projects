@@ -3578,6 +3578,7 @@ window.saveEmp = async function(){
   closeM('m-emp');
   toast(isNew?'✓ Empleado creado':'✓ Empleado actualizado');
   refreshActive();
+  window.sigralBackup?.saved(DB,isNew?'alta_empleado':'edicion_empleado');
 };
 
 window.delEmp = async function(){
@@ -3589,6 +3590,7 @@ window.delEmp = async function(){
   closeM('m-emp');
   toast('Empleado marcado como Retirado','w');
   renderEmpleados();
+  window.sigralBackup?.saved(DB,'retiro_empleado');
 };
 
 // ─── CESAR EMPLEADO ────────────────────────────────────────────────────────────
@@ -3713,6 +3715,7 @@ window.saveProy = async function(){
   closeM('m-proy');
   toast(isNew?'✓ Proyecto creado':'✓ Proyecto actualizado');
   refreshActive();
+  window.sigralBackup?.saved(DB,isNew?'alta_proyecto':'edicion_proyecto');
 };
 
 window.delProy = async function(){
@@ -3725,6 +3728,7 @@ window.delProy = async function(){
   closeM('m-proy');
   toast('Proyecto eliminado','w');
   renderProyectos();
+  window.sigralBackup?.saved(DB,'eliminacion_proyecto');
 };
 
 // ── CRUD ASIGNACIONES ─────────────────────────────────────────────────────────
@@ -3763,6 +3767,7 @@ window.saveAsig = async function(){
   closeM('m-asig');
   toast(isNew?'✓ Asignación creada':'✓ Asignación actualizada');
   refreshActive();
+  window.sigralBackup?.saved(DB,isNew?'alta_asignacion':'edicion_asignacion');
 };
 
 window.delAsig = async function(){
@@ -3773,6 +3778,7 @@ window.delAsig = async function(){
   closeM('m-asig');
   toast('Asignación eliminada','w');
   renderAsignacion();
+  window.sigralBackup?.saved(DB,'eliminacion_asignacion');
 };
 
 // ── CESAR EMPLEADO (Supabase override) ───────────────────────────────────────
@@ -3796,6 +3802,7 @@ window.cesarEmpleado = async function(empId){
   if(document.getElementById('page-alertas').classList.contains('active'))renderAlertas();
   if(document.getElementById('page-dashboard').classList.contains('active'))renderDashboard();
   toast(`✓ ${e.apellidos}, ${e.nombres} cesado; historial preservado.`,'w');
+  window.sigralBackup?.saved(DB,'cese_empleado');
 };
 
 // ── CRUD USUARIOS ─────────────────────────────────────────────────────────────
@@ -3868,5 +3875,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 /* SQL de seguridad y esquema disponibles en sql/ y docs/. */
 </script>
+<script src="scripts/backup-local.js"></script>
 </body>
 </html>

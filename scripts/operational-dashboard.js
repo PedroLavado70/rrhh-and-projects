@@ -35,6 +35,31 @@ function render(db){
  section.style.cssText='margin-top:14px;padding:15px 18px;';
  place.insertAdjacentElement('afterend',section);}
  section.replaceChildren();
+ // Five consistent compact rows per column; retain ALL items in independently scrollable lists.
+ if(!document.getElementById('sigral-operational-scroll-style')){
+   const css=node('style');css.id='sigral-operational-scroll-style';
+   css.textContent=`
+   #sigral-operational-alerts .sigral-alert-scroll {
+     height: 330px; max-height: 330px; min-height:0;
+     overflow-y: auto; overscroll-behavior: contain;
+     scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+     padding: 0 5px 0 0;
+   }
+   #sigral-operational-alerts .sigral-alert-scroll::-webkit-scrollbar {width: 7px}
+   #sigral-operational-alerts .sigral-alert-scroll::-webkit-scrollbar-thumb {background:var(--border);border-radius:8px}
+   #sigral-operational-alerts .sigral-alert-row {
+     box-sizing: border-box; height: 60px; min-height:60px;
+     margin: 0 0 6px; padding: 7px 10px; overflow: hidden;
+   }
+   #sigral-operational-alerts .sigral-alert-label {
+     font-size: 12px; line-height: 17px; overflow: hidden;
+     white-space: nowrap; text-overflow: ellipsis;
+   }
+   #sigral-operational-alerts .sigral-alert-row small {font-size:11px;line-height:16px}
+   @media(max-width:740px) {#sigral-operational-alerts .sigral-alert-scroll {height:264px;max-height:264px}}
+   `;
+   document.head.appendChild(css);
+ }
  section.appendChild(node('h3','Próximos cierres y liberación de recursos'));
  const t=evaluate(db);
  const header=node('div',undefined);header.style.cssText='display:flex;flex-wrap:wrap;gap:10px;margin:12px 0';
@@ -48,12 +73,20 @@ function render(db){
  section.appendChild(header);
  const wrap=node('div',undefined);wrap.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:14px;';
  const list=(heading,items,format)=>{
-  const col=node('div');col.appendChild(node('h4',heading));
-  if(!items.length){col.appendChild(node('p','Sin eventos próximos.'));return col}
-  for(const item of items.slice(0,8)){const card=node('div',undefined,'res-card');card.style.margin='6px 0';
-   const label=node('div',format(item));card.appendChild(label);
+  const col=node('div');col.style.minWidth='0';col.appendChild(node('h4',heading));
+  const viewport=node('div',undefined,'sigral-alert-scroll');
+  viewport.setAttribute('role','region');
+  viewport.setAttribute('aria-label',heading+'; desplazar para consultar todos los registros');
+  viewport.setAttribute('tabindex','0');
+  if(!items.length){viewport.appendChild(node('p','Sin eventos próximos.'));}
+  for(const item of items){
+   const card=node('div',undefined,'res-card sigral-alert-row');
+   const label=node('div',format(item),'sigral-alert-label');card.appendChild(label);
    const when=node('small',item.days<0?'Vencido hace '+(-item.days)+' días':'Termina en '+item.days+' días');
-   when.style.color=item.days<=15?'#c2410c':'var(--t2)';card.appendChild(when);col.appendChild(card)}
+   when.style.color=item.days<=15?'#f97316':'var(--t2)';
+   card.appendChild(when);viewport.appendChild(card);
+  }
+  col.appendChild(viewport);
   return col;
  };
  wrap.append(

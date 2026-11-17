@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'unsafe-inline'; img-src 'self' data:; font-src 'none'; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<title>SIGRAL | Consulta privada de Excel</title>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{color-scheme:light;--blue:#172d4d;--accent:#225e9e;--bg:#f3f5f9;--line:#dce3ed;--muted:#617185;--beige:#f2eadc}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:14px system-ui,-apple-system,Segoe UI,sans-serif;color:#162b43}
+header{background:var(--blue);color:#fff;padding:20px max(16px,calc((100% - 1280px)/2));display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+header strong{font-size:19px;letter-spacing:.3px}header small{display:block;color:#c5d5e7;margin-top:5px}
+main{max-width:1280px;margin:22px auto;padding:0 15px 25px}
+section{background:white;border:1px solid var(--line);border-radius:12px;padding:17px;margin-bottom:15px;box-shadow:0 1px 3px #152e4410}
+h2{margin:0 0 10px;font-size:17px}p{line-height:1.55;margin:8px 0;color:var(--muted)}
+.upload{border:2px dashed #97b0c7;border-radius:10px;background:#f8fafc;text-align:center;padding:22px;cursor:pointer;display:block}
+.upload:focus-within{outline:2px solid var(--accent)}.upload input{display:block;margin:12px auto 0;max-width:100%}
+button{border:1px solid var(--line);border-radius:7px;background:white;color:var(--blue);padding:9px 14px;cursor:pointer;font-weight:600}
+button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+button:hover{border-color:#225e9e}
+input[type=search]{padding:10px 12px;border:1px solid var(--line);border-radius:8px;min-width:220px;flex:1;max-width:440px;font:inherit}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+#status{font-weight:600;color:var(--accent);min-height:20px}
+#status.error{color:#a12f2f}#summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{border:1px solid var(--line);border-radius:9px;padding:14px;background:var(--beige)}
+.stat b{font-size:23px;display:block;color:var(--blue)}.stat span{font-size:12px;color:#4f5d6c}
+#table-wrap{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;white-space:nowrap;font-size:12px}
+th,td{padding:9px 12px;border-bottom:1px solid #e9eef3;text-align:left;max-width:340px;overflow:hidden;text-overflow:ellipsis}
+th{position:sticky;top:0;background:#eaf0f7;color:#2b4363;z-index:1}
+tbody tr:nth-child(even){background:#f9fbfd}tbody tr:hover{background:#eef5fd}
+.note{font-size:12px;color:#596b7f}
+[hidden]{display:none!important}
+footer{text-align:center;color:#788699;font-size:12px;padding:8px}
+@media(max-width:600px){header strong{font-size:16px}section{padding:13px}th,td{padding:8px}main{margin-top:12px}}
+</style>
+</head>
+<body>
+<header><div><strong>SIGRAL S.A. | RRHH y Proyectos</strong><small>Consulta individual de la información Excel · sin sincronización remota</small></div><span>© Pedro Lavado Tafur</span></header>
+<main>
+<section>
+<h2>1. Abrir tu archivo Excel</h2>
+<label class="upload">Selecciona <strong>0_Personal_SIGRAL_r0.xlsx</strong> desde tu equipo.
+<input id="excel-file" type="file" accept=".xlsx,.xls" aria-label="Seleccionar archivo Excel"></label>
+<p class="note">Privacidad: el archivo se procesa únicamente en este navegador. No se envía a Supabase, Netlify ni a ningún servidor. La información se elimina al cerrar o recargar esta página.</p>
+<p id="status" role="status" aria-live="polite">Selecciona el archivo para comenzar.</p>
+</section>
+<section id="dashboard" hidden>
+<h2>2. Resumen del archivo cargado</h2><div id="summary"></div>
+</section>
+<section id="browse" hidden>
+<h2>3. Consultar registros</h2>
+<div class="toolbar" id="tabs" role="tablist" aria-label="Hojas Excel"></div>
+<div class="toolbar"><input id="search" type="search" placeholder="Buscar por DNI, empleado, proyecto, contrato…" aria-label="Buscar registros">
+<button id="clear" type="button">Limpiar búsqueda</button><span id="counter" class="note"></span></div>
+<div id="table-wrap"><table><thead id="header"></thead><tbody id="body"></tbody></table></div>
+<p class="note">Se muestran hasta 150 filas por página. Los importes y fechas se reproducen desde el Excel; no se calculan ni corrigen automáticamente.</p>
+<div class="toolbar"><button id="prev">Anterior</button><span id="page" class="note"></span><button id="next">Siguiente</button></div>
+</section>
+</main>
+<footer>SIGRAL | Visor de solo lectura. Supabase sigue siendo la fuente oficial de producción.</footer>
+<script>
+'use strict';
+const CONFIG={
+ Personal:{header:0,cols:15,label:'Personal'},
+ Contratos:{header:3,cols:15,label:'Contratos'},
+ Asignaciones:{header:3,cols:15,label:'Asignaciones'},
+ Proyectos:{header:3,cols:15,label:'Proyectos'}
+};
+let sheets={},active='Personal',search='',page=0,matched=[];
+const $=id=>document.getElementById(id);
+const normal=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+function status(message,error=false){$('status').textContent=message;$('status').classList.toggle('error',error)}
+function extract(workbook,name,config){
+  const worksheet=workbook.Sheets[name];if(!worksheet)throw Error('Falta la hoja requerida: '+name);
+  const rows=XLSX.utils.sheet_to_json(worksheet,{header:1,defval:'',raw:false,blankrows:false});
+  if(rows.length<=config.header)throw Error('No se encontró la cabecera de '+name);
+  const headers=rows[config.header].slice(0,config.cols).map((x,i)=>String(x||('Campo '+(i+1))).trim());
+  const records=rows.slice(config.header+1).filter(r=>r.some(v=>String(v??'').trim()!=='')).map(r=>headers.map((h,i)=>String(r[i]??'')));
+  return {headers,records};
+}
+function setTab(key){active=key;search='';page=0;$('search').value='';
+ for(const b of $('tabs').children){b.classList.toggle('active',b.dataset.key===key);b.setAttribute('aria-selected',String(b.dataset.key===key))}
+ refresh()}
+function refresh(){
+ const data=sheets[active];if(!data)return;
+ matched=data.records.filter(row=>!search||row.some(x=>normal(x).includes(search)));
+ const size=150,count=matched.length,total=Math.max(1,Math.ceil(count/size));page=Math.max(0,Math.min(page,total-1));
+ const start=page*size,rows=matched.slice(start,start+size);
+ const head=$('header'),body=$('body');head.replaceChildren();body.replaceChildren();
+ const tr=document.createElement('tr');
+ for(const h of data.headers){const th=document.createElement('th');th.textContent=h;tr.appendChild(th)}
+ head.appendChild(tr);
+ const fragment=document.createDocumentFragment();
+ for(const row of rows){const tr=document.createElement('tr');for(const val of row){const td=document.createElement('td');td.textContent=val;td.title=val;tr.appendChild(td)}fragment.appendChild(tr)}
+ body.appendChild(fragment);
+ $('counter').textContent=count+' registros coincidentes';
+ $('page').textContent='Página '+(page+1)+' de '+total;
+ $('prev').disabled=page===0;$('next').disabled=page>=total-1;
+}
+function initBrowser(){
+ const tabs=$('tabs');tabs.replaceChildren();const summary=$('summary');summary.replaceChildren();
+ for(const [name,data] of Object.entries(sheets)){
+  const b=document.createElement('button');b.type='button';b.dataset.key=name;b.textContent=name;b.setAttribute('role','tab');b.onclick=()=>setTab(name);tabs.appendChild(b);
+  const stat=document.createElement('div');stat.className='stat';
+  const number=document.createElement('b');number.textContent=data.records.length.toLocaleString('es-PE');
+  const label=document.createElement('span');label.textContent=name+' · filas no vacías';stat.append(number,label);summary.appendChild(stat);
+ }
+ $('dashboard').hidden=false;$('browse').hidden=false;setTab('Personal');
+}
+$('excel-file').addEventListener('change',async ev=>{
+ const file=ev.target.files?.[0];if(!file)return;
+ sheets={};$('dashboard').hidden=true;$('browse').hidden=true;
+ if(!/\.xlsx?$/i.test(file.name)){status('Selecciona un archivo Excel .xlsx o .xls.',true);return}
+ if(typeof XLSX==='undefined'){status('No se pudo cargar el lector XLSX. Comprueba tu conexión a internet.',true);return}
+ try{
+  status('Leyendo el archivo únicamente en este navegador…');
+  const bytes=await file.arrayBuffer();
+  const book=XLSX.read(bytes,{type:'array',cellDates:false});
+  const read={};for(const [name,cfg] of Object.entries(CONFIG))read[name]=extract(book,name,cfg);
+  sheets=read;initBrowser();
+  status('Archivo cargado: '+file.name+'. Consulta disponible sin subir datos a ningún servidor.');
+ }catch(err){sheets={};status('No fue posible leer el Excel: '+(err?.message||'error desconocido'),true)}
+});
+$('search').addEventListener('input',ev=>{search=normal(ev.target.value.trim());page=0;refresh()});
+$('clear').onclick=()=>{$('search').value='';search='';page=0;refresh()};
+$('prev').onclick=()=>{if(page>0){page--;refresh()}};
+$('next').onclick=()=>{page++;refresh()};
+</script>
+</body>
+</html>

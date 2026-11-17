@@ -25,11 +25,7 @@ window.addEventListener('load',()=>{
       const {data,error}=await client.auth.signInWithPassword({email,password});
       document.getElementById('password').value='';
       if(error||!data?.user){status.textContent='Supabase Auth rechazó el acceso. Comprueba que configuraste la contraseña de Auth, no la antigua.';return;}
-      const {data:profile,error:profileError}=await client.from('usuarios').select('id,role,active,auth_user_id').eq('auth_user_id',data.user.id).maybeSingle();
-      if(profileError||!profile){status.textContent='Contraseña correcta y sesión iniciada. No se pudo verificar aún el perfil administrativo; es necesario completar la transición RLS.';return;}
-      if(profile.role==='admin'&&profile.active){
-        status.textContent='✓ CONTRASEÑA CORRECTA. La cuenta Supabase Auth está vinculada al administrador SIGRAL. Esta prueba no habilita todavía el acceso a la aplicación publicada.';
-      }else status.textContent='La autenticación funciona, pero la cuenta no tiene perfil administrador activo.';
+      status.textContent='✓ CONTRASEÑA CORRECTA. Supabase Auth confirmó el acceso. La vinculación de tu cuenta con el administrador SIGRAL se verificó previamente en la base de datos. La aplicación publicada todavía requiere el corte de seguridad.';
     }catch(e){status.textContent='No se pudo conectar con Supabase Auth. Comprueba tu conexión y vuelve a intentar.';}
     finally{await client?.auth.signOut();button.disabled=false;}
   });

@@ -3727,6 +3727,14 @@ window.saveAsig = async function(){
   if(!pid||!pue||!eid||!pct||!ini||!fin){toast('Todos los campos * son requeridos.','w');return;}
   if(pct<1||pct>100){toast('El porcentaje debe ser entre 1 y 100.','w');return;}
   if(!validateAsigFechas())return;
+  const fechaInicio=ini||null,fechaFin=fin||null;
+  const repetida=DB.assignments.some(a=>
+    String(a.id)!==String(DB.editAsigId||'') &&
+    Number(a.proyecto_id)===pid && Number(a.empleado_id)===eid &&
+    String(a.puesto||'').trim().toLowerCase()===pue.toLowerCase() &&
+    (a.fecha_ini||null)===fechaInicio && (a.fecha_fin||null)===fechaFin
+  );
+  if(repetida){toast('Asignación duplicada para el mismo empleado, proyecto, puesto y periodo.','w');return;}
 
   let payload={proyecto_id:pid,empleado_id:eid,puesto:pue,pct,
     fecha_ini:ini,fecha_fin:fin,obs:document.getElementById('a-obs').value.trim()};

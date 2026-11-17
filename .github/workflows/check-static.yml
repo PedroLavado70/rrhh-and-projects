@@ -16,3 +16,5 @@ jobs:
           node-version: '22'
       - run: node scripts/check-static.mjs
       - run: node scripts/check-auth.mjs
+      - run: node --check scripts/backup-local.js
+      - run: node scripts/check-backup.mjs

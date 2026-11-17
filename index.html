@@ -576,7 +576,7 @@ code{color:var(--a2);font-size:10px;}
         <div class="fg"><label class="fl">Área</label><select class="fc" id="f-area"><option value="">— Área —</option></select></div>
         <div class="fg"><label class="fl">Salario (S/.)</label><input class="fc" id="f-sal" type="number" step="0.01"></div>
         <div class="fg"><label class="fl">Estado</label><select class="fc" id="f-est"><option value="">— Estado —</option></select></div>
-        <div class="fg"><label class="fl">Tipo Contrato</label><select class="fc" id="f-tipo"><option value="">— Tipo Contrato —</option></select></div>
+        <div class="fg"><label class="fl">Tipo Contrato</label><select class="fc" id="f-tipo" onchange="syncContractEndField()"><option value="">— Tipo Contrato —</option></select></div>
         <div class="fg"><label class="fl">Fecha Ingreso</label><input class="fc" id="f-ing" type="date"></div>
         <div class="fg"><label class="fl">Fin Contrato</label><input class="fc" id="f-fin" type="date"></div>
       </div>
@@ -1506,6 +1506,17 @@ function renderEmpleados(){
 }
 
 // ─── MODAL EMPLEADO ──────────────────────────────────────────────────────────
+// RH-001: contratos indefinidos no tienen vencimiento; el cese es un evento distinto.
+function isIndefiniteContract(tipo){return String(tipo||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()==='indefinido';}
+function syncContractEndField(){
+  const tipo=document.getElementById('f-tipo'),fin=document.getElementById('f-fin');
+  if(!tipo||!fin)return;
+  const blocked=isIndefiniteContract(tipo.value);
+  if(blocked)fin.value='';
+  fin.disabled=blocked;
+  fin.required=!!tipo.value&&!blocked;
+  fin.title=blocked?'Contrato indefinido sin vencimiento. Registrar fecha de cese por separado.':'';
+}
 function openEmpModal(id){
   if(!isAdmin())return;
   DB.editEmpId=id;
@@ -1524,12 +1535,14 @@ function openEmpModal(id){
     document.getElementById('f-area').value=e.area||'';
     document.getElementById('f-est').value=e.estado||'Activo';
     document.getElementById('f-tipo').value=e.tipo_contrato||'';
+    syncContractEndField();
   },10);
     document.getElementById('f-sal').value=e.salario||'';
     document.getElementById('f-est').value=e.estado||'Activo';
     document.getElementById('f-tipo').value=e.tipo_contrato||'';
     document.getElementById('f-ing').value=e.fecha_ingreso||'';
     document.getElementById('f-fin').value=e.fecha_fin_contrato||'';
+    syncContractEndField();
     document.getElementById('f-obs').value=e.observaciones||'';
   } else {
     document.getElementById('m-emp-t').textContent='Nuevo Empleado';
@@ -1537,6 +1550,7 @@ function openEmpModal(id){
     setTimeout(()=>{['f-prof','f-cargo','f-area','f-est','f-tipo'].forEach(id=>{let el=document.getElementById(id);if(el)el.value='';});},10);
     document.getElementById('f-est').value='Activo';
     document.getElementById('f-tipo').value='';
+    syncContractEndField();
     document.getElementById('f-cod').value='EMP'+String(DB.nextEmpId).padStart(3,'0');
   }
   fillAllDropdowns();
@@ -1544,6 +1558,9 @@ function openEmpModal(id){
 }
 
 function saveEmp(){
+  const tipoContrato=document.getElementById('f-tipo').value;
+  const fechaFin=isIndefiniteContract(tipoContrato)?'':document.getElementById('f-fin').value;
+  if(tipoContrato&&!isIndefiniteContract(tipoContrato)&&!fechaFin){alert('El contrato a plazo fijo requiere fecha de vencimiento.');return;}
   let cod=document.getElementById('f-cod').value.trim();
   let nom=document.getElementById('f-nom').value.trim();
   let ape=document.getElementById('f-ape').value.trim();
@@ -1562,9 +1579,9 @@ function saveEmp(){
     area:document.getElementById('f-area').value,
     salario:parseFloat(document.getElementById('f-sal').value)||null,
     estado:document.getElementById('f-est').value,
-    tipo_contrato:document.getElementById('f-tipo').value,
+    tipo_contrato:tipoContrato,
     fecha_ingreso:document.getElementById('f-ing').value,
-    fecha_fin_contrato:document.getElementById('f-fin').value,
+    fecha_fin_contrato:fechaFin,
     observaciones:document.getElementById('f-obs').value.trim(),
   };
   if(DB.editEmpId){let i=DB.employees.findIndex(e=>e.id===DB.editEmpId);if(i>=0)DB.employees[i]={...DB.employees[i],...data};}
@@ -3556,6 +3573,9 @@ function sbToAsig(r){
 
 // ── CRUD EMPLEADOS ─────────────────────────────────────────────────────────────
 window.saveEmp = async function(){
+  const tipoContrato=document.getElementById('f-tipo').value;
+  const fechaFin=isIndefiniteContract(tipoContrato)?null:(document.getElementById('f-fin').value||null);
+  if(tipoContrato&&!isIndefiniteContract(tipoContrato)&&!fechaFin){toast('El contrato a plazo fijo requiere fecha de vencimiento.','w');return;}
   let cod=document.getElementById('f-cod').value.trim();
   let nom=document.getElementById('f-nom').value.trim();
   let ape=document.getElementById('f-ape').value.trim();
@@ -3576,9 +3596,9 @@ window.saveEmp = async function(){
     area:document.getElementById('f-area').value,
     salario:parseFloat(document.getElementById('f-sal').value)||null,
     estado:document.getElementById('f-est').value||'Activo',
-    tipo_contrato:document.getElementById('f-tipo').value,
+    tipo_contrato:tipoContrato,
     fecha_ingreso:document.getElementById('f-ing').value||null,
-    fecha_fin_contrato:document.getElementById('f-fin').value||null,
+    fecha_fin_contrato:fechaFin,
     observaciones:document.getElementById('f-obs').value.trim(),
   };
 
@@ -3697,21 +3717,18 @@ window.confirmarRenov = async function(){
     if(new Date(nuevaFin+'T00:00:00')<getRenewStart()){toast('La fecha debe ser posterior al inicio.','w');return;}
   }
   let nuevoTipo=document.getElementById('rn-tipo-nuevo').value||e.tipo_contrato;
-  let obs=document.getElementById('rn-obs').value.trim();
-  if(!e.historial)e.historial=[];
-  e.historial.push({fecha:fd(new Date()),fin_anterior:e.fecha_fin_contrato,nueva_fin:nuevaFin,tipo:nuevoTipo,obs});
-  e.fecha_fin_contrato=nuevaFin;e.tipo_contrato=nuevoTipo;
-  if(obs)e.observaciones=(e.observaciones?e.observaciones+' | ':'')+obs;
-
+  const indefinido=isIndefiniteContract(nuevoTipo);
+  if(indefinido)nuevaFin=null;
+  const obs=document.getElementById('rn-obs').value.trim();
+  const historial=[...(e.historial||[]),{fecha:fd(new Date()),fin_anterior:e.fecha_fin_contrato||null,nueva_fin:nuevaFin,tipo:nuevoTipo,obs}];
+  const observaciones=obs?(e.observaciones?e.observaciones+' | ':'')+obs:(e.observaciones||'');
   const {error}=await SB.from('empleados').update({
-    fecha_fin_contrato:nuevaFin,tipo_contrato:nuevoTipo,
-    observaciones:e.observaciones,historial:e.historial
+    fecha_fin_contrato:nuevaFin,tipo_contrato:nuevoTipo,observaciones,historial
   }).eq('id',DB.renewEmpId);
   if(error){toast('Error al renovar: '+error.message,'d');return;}
-
-  closeM('m-renov');
-  refreshActive();
-  toast(`✓ Contrato renovado hasta ${fdd(nuevaFin)}`);
+  e.historial=historial;e.fecha_fin_contrato=nuevaFin;e.tipo_contrato=nuevoTipo;e.observaciones=observaciones;
+  closeM('m-renov');refreshActive();
+  toast(indefinido?'✓ Contrato convertido a indefinido, sin vencimiento.':`✓ Contrato renovado hasta ${fdd(nuevaFin)}`);
 };
 
 // ── CRUD PROYECTOS ─────────────────────────────────────────────────────────────
@@ -3911,7 +3928,7 @@ window.processImport = async function(){
         email:r.email||'',telefono:r.telefono||'',profesion:r.profesion||'',
         especialidad:r.especialidad||'',cargo:r.cargo||'',area:r.area||'',
         tipo_contrato:r.tipo_contrato||'',fecha_ingreso:parseDate(r.fecha_ingreso)||null,
-        fecha_fin_contrato:parseDate(r.fecha_fin_contrato)||null,
+        fecha_fin_contrato:isIndefiniteContract(r.tipo_contrato)?null:(parseDate(r.fecha_fin_contrato)||null),
         salario:parseFloat(r.salario)||null,estado:r.estado||'Activo',observaciones:r.observaciones||''};
       // Check existing
       let ex=DB.employees.find(e=>e.codigo===cod);

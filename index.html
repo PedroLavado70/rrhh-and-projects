@@ -576,7 +576,7 @@ code{color:var(--a2);font-size:10px;}
         <div class="fg"><label class="fl">Área</label><select class="fc" id="f-area"><option value="">— Área —</option></select></div>
         <div class="fg"><label class="fl">Salario (S/.)</label><input class="fc" id="f-sal" type="number" step="0.01"></div>
         <div class="fg"><label class="fl">Estado</label><select class="fc" id="f-est"><option value="">— Estado —</option></select></div>
-        <div class="fg"><label class="fl">Tipo Contrato</label><select class="fc" id="f-tipo"><option value="">— Tipo Contrato —</option></select></div>
+        <div class="fg"><label class="fl">Tipo Contrato</label><select class="fc" id="f-tipo" onchange="syncContractEndField()"><option value="">— Tipo Contrato —</option></select></div>
         <div class="fg"><label class="fl">Fecha Ingreso</label><input class="fc" id="f-ing" type="date"></div>
         <div class="fg"><label class="fl">Fin Contrato</label><input class="fc" id="f-fin" type="date"></div>
       </div>
@@ -810,8 +810,7 @@ let DB={
     {id:9,proyecto_id:6,empleado_id:9,puesto:'Especialista Eléctrico',pct:100,fecha_ini:'2024-08-01',fecha_fin:fd(ad(new Date(),18)),obs:''},
   ],
   users:[
-    {id:1,name:'Pedro Lavado',email:'pedro@sigral.com',role:'admin',active:true,created:'2024-01-01',pwdHash:'sigral2024!'},
-    {id:2,name:'Ana García',email:'ana.garcia@sigral.com',role:'viewer',active:true,created:'2024-03-15',pwdHash:'viewer123'},
+    // Usuarios demo deshabilitados: únicamente Supabase Auth.
   ],
   nextEmpId:10,nextProyId:7,nextAsigId:10,nextUsrId:3,
   maestras:{
@@ -911,36 +910,7 @@ function simpleHash(str){
   return str; // Demo: store plain, compare plain (artifact is client-only)
 }
 
-function doLogin(){
-  let email=document.getElementById('login-email').value.trim().toLowerCase();
-  let pwd=document.getElementById('login-pwd').value;
-  let errEl=document.getElementById('login-error');
-  errEl.style.display='none';
-  if(!email||!pwd){errEl.textContent='Por favor completa email y contraseña.';errEl.style.display='block';return;}
-  let user=DB.users.find(u=>u.email.toLowerCase()===email&&u.active);
-  if(!user||user.pwdHash!==pwd){
-    errEl.textContent='Email o contraseña incorrectos. Verifica tus datos.';
-    errEl.style.display='block';
-    document.getElementById('login-pwd').value='';
-    document.getElementById('login-pwd').focus();
-    // Shake animation
-    let card=document.querySelector('.login-card');
-    card.style.animation='none';
-    card.offsetHeight;
-    card.style.animation='shake .4s ease';
-    return;
-  }
-  // Login successful
-  DB.currentUser={id:user.id,name:user.name,role:user.role};
-  document.getElementById('login-screen').classList.add('hidden');
-  fillAllDropdowns();
-  document.getElementById('login-email').value='';
-  document.getElementById('login-pwd').value='';
-  errEl.style.display='none';
-  updateUserUI();
-  applyRoleUI();
-  goPage('dashboard',document.querySelector('.na.active'));
-}
+function doLogin(){throw new Error('Supabase Auth required');}
 
 function doLogout(){
   if(!confirm('¿Cerrar sesión?'))return;
@@ -971,21 +941,7 @@ function resetChgPwd(){
   let msg=document.getElementById('cp-msg');if(msg)msg.innerHTML='';
 }
 
-function saveChgPwd(){
-  let actual=document.getElementById('cp-actual').value;
-  let nueva=document.getElementById('cp-nueva').value;
-  let confirm2=document.getElementById('cp-confirm').value;
-  let msg=document.getElementById('cp-msg');
-  msg.innerHTML='';
-  if(!actual||!nueva||!confirm2){msg.innerHTML='<div class="alt alt-w">Completa todos los campos.</div>';return;}
-  if(nueva.length<6){msg.innerHTML='<div class="alt alt-w">La nueva contraseña debe tener al menos 6 caracteres.</div>';return;}
-  if(nueva!==confirm2){msg.innerHTML='<div class="alt alt-w">Las contraseñas nuevas no coinciden.</div>';return;}
-  let user=DB.users.find(u=>u.id===DB.currentUser.id);
-  if(!user||user.pwdHash!==actual){msg.innerHTML='<div class="alt alt-d">La contraseña actual es incorrecta.</div>';return;}
-  user.pwdHash=nueva;
-  msg.innerHTML='<div class="alt alt-s">Contraseña actualizada correctamente.</div>';
-  setTimeout(()=>closeM('m-chgpwd'),1500);
-}
+function saveChgPwd(){throw new Error('Supabase Auth required');}
 function applyRoleUI(){
   let a=isAdmin();
   document.getElementById('nav-importar').classList.toggle('disabled',!a);
@@ -1293,6 +1249,7 @@ function renderDashboard(){
   renderDashAsigAlert(proys);
   renderDashProySinRec(proys);
   renderDashAlertas(al);
+  window.sigralOperational?.render(DB);
 }
 
 function buildCharts(proys,emps){
@@ -1506,6 +1463,18 @@ function renderEmpleados(){
 }
 
 // ─── MODAL EMPLEADO ──────────────────────────────────────────────────────────
+// RH-001: contratos indefinidos no tienen vencimiento; el cese es un evento distinto.
+function isIndefiniteContract(tipo){return String(tipo||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()==='indefinido';}
+function isFixedTermContract(tipo){return String(tipo||'').trim().toLowerCase()==='plazo fijo';}
+function syncContractEndField(){
+  const tipo=document.getElementById('f-tipo'),fin=document.getElementById('f-fin');
+  if(!tipo||!fin)return;
+  const blocked=isIndefiniteContract(tipo.value);
+  if(blocked)fin.value='';
+  fin.disabled=blocked;
+  fin.required=isFixedTermContract(tipo.value);
+  fin.title=blocked?'Contrato indefinido sin vencimiento. Registrar fecha de cese por separado.':'';
+}
 function openEmpModal(id){
   if(!isAdmin())return;
   DB.editEmpId=id;
@@ -1524,12 +1493,14 @@ function openEmpModal(id){
     document.getElementById('f-area').value=e.area||'';
     document.getElementById('f-est').value=e.estado||'Activo';
     document.getElementById('f-tipo').value=e.tipo_contrato||'';
+    syncContractEndField();
   },10);
     document.getElementById('f-sal').value=e.salario||'';
     document.getElementById('f-est').value=e.estado||'Activo';
     document.getElementById('f-tipo').value=e.tipo_contrato||'';
     document.getElementById('f-ing').value=e.fecha_ingreso||'';
     document.getElementById('f-fin').value=e.fecha_fin_contrato||'';
+    syncContractEndField();
     document.getElementById('f-obs').value=e.observaciones||'';
   } else {
     document.getElementById('m-emp-t').textContent='Nuevo Empleado';
@@ -1537,6 +1508,7 @@ function openEmpModal(id){
     setTimeout(()=>{['f-prof','f-cargo','f-area','f-est','f-tipo'].forEach(id=>{let el=document.getElementById(id);if(el)el.value='';});},10);
     document.getElementById('f-est').value='Activo';
     document.getElementById('f-tipo').value='';
+    syncContractEndField();
     document.getElementById('f-cod').value='EMP'+String(DB.nextEmpId).padStart(3,'0');
   }
   fillAllDropdowns();
@@ -1544,6 +1516,9 @@ function openEmpModal(id){
 }
 
 function saveEmp(){
+  const tipoContrato=document.getElementById('f-tipo').value;
+  const fechaFin=isIndefiniteContract(tipoContrato)?'':document.getElementById('f-fin').value;
+  if(isFixedTermContract(tipoContrato)&&!fechaFin){alert('El contrato a plazo fijo requiere fecha de vencimiento.');return;}
   let cod=document.getElementById('f-cod').value.trim();
   let nom=document.getElementById('f-nom').value.trim();
   let ape=document.getElementById('f-ape').value.trim();
@@ -1562,9 +1537,9 @@ function saveEmp(){
     area:document.getElementById('f-area').value,
     salario:parseFloat(document.getElementById('f-sal').value)||null,
     estado:document.getElementById('f-est').value,
-    tipo_contrato:document.getElementById('f-tipo').value,
+    tipo_contrato:tipoContrato,
     fecha_ingreso:document.getElementById('f-ing').value,
-    fecha_fin_contrato:document.getElementById('f-fin').value,
+    fecha_fin_contrato:fechaFin,
     observaciones:document.getElementById('f-obs').value.trim(),
   };
   if(DB.editEmpId){let i=DB.employees.findIndex(e=>e.id===DB.editEmpId);if(i>=0)DB.employees[i]={...DB.employees[i],...data};}
@@ -3280,6 +3255,7 @@ function renderUsuarios(){
   </tr>`).join('')}</tbody></table></div></div>`;
 }
 function openUsrModal(uid){
+  if(!uid){toast('Alta de usuarios: Supabase Auth + vinculación de auth_user_id.','w');return;}
   DB.editUsrId=uid;
   let note=document.getElementById('pwd-req-note');
   if(uid){
@@ -3288,6 +3264,7 @@ function openUsrModal(uid){
     document.getElementById('u-nom').value=u.name;
     document.getElementById('u-email').value=u.email;
     document.getElementById('u-pwd').value='';
+    document.getElementById('u-pwd').disabled=true;
     document.getElementById('u-rol').value=u.role;
     if(note)note.textContent='(dejar en blanco para no cambiar)';
   } else {
@@ -3411,7 +3388,7 @@ function refreshActive(){
 // ─── INIT (startup handled by Supabase layer below) ──────────────────────────
 function renderUsrPwdField(){
   let el=document.getElementById('u-pwd');
-  if(el)el.placeholder='Contraseña (dejar en blanco para no cambiar)';
+  if(el){el.disabled=true;el.placeholder='Administrar contraseña en Supabase Auth';}
 }
 </script>
 
@@ -3450,78 +3427,72 @@ function showLoading(id){
 
 // ── AUTENTICACIÓN CONTRA SUPABASE tabla "usuarios" ────────────────────────────
 // Reemplaza doLogin() para autenticar contra Supabase
-window.doLogin = async function(){
-  let email  = document.getElementById('login-email').value.trim().toLowerCase();
-  let pwd    = document.getElementById('login-pwd').value;
-  let errEl  = document.getElementById('login-error');
-  errEl.style.display='none';
-  if(!email||!pwd){errEl.textContent='Por favor completa email y contraseña.';errEl.style.display='block';return;}
-
-  try {
-    const {data,error} = await SB.from('usuarios')
-      .select('*')
-      .eq('email',email)
-      .eq('active',true)
-      .single();
-
-    if(error||!data){
-      errEl.textContent='Email o contraseña incorrectos.';errEl.style.display='block';
-      document.getElementById('login-pwd').value='';return;
-    }
-    if(data.pwd_hash!==pwd){
-      errEl.textContent='Email o contraseña incorrectos.';errEl.style.display='block';
-      document.getElementById('login-pwd').value='';return;
-    }
-
-    // Login OK
-    DB.currentUser={id:data.id,name:data.name,role:data.role};
+// Impedir que una vista previa Netlify use por accidente la BD de producción.
+function isPreviewUsingProduction(){
+  const host=String(window.location?.hostname||'').toLowerCase();
+  return host.startsWith('deploy-preview-') &&
+    SUPABASE_URL.includes('amhkybyuwrolursgsicb.supabase.co');
+}
+window.doLogin=async function(){
+  if(isPreviewUsingProduction()){
+    const msg=document.getElementById('login-error');
+    msg.textContent='Preproducción no configurada: esta vista previa apunta a la base real. Configure un proyecto Supabase de ensayo antes de ingresar.';
+    msg.style.display='block';return;
+  }
+  const email=document.getElementById('login-email').value.trim().toLowerCase(),pwd=document.getElementById('login-pwd').value,errEl=document.getElementById('login-error');
+  errEl.style.display='none';if(!email||!pwd){errEl.textContent='Completa email y contraseña.';errEl.style.display='block';return;}
+  try{
+    const {data:auth,error}=await SB.auth.signInWithPassword({email,password:pwd});
+    document.getElementById('login-pwd').value='';
+    if(error||!auth?.user){errEl.textContent='Credenciales incorrectas o cuenta no habilitada.';errEl.style.display='block';return;}
+    const {data:perfil,error:pe}=await SB.from('usuarios').select('id,name,email,role,active,auth_user_id').eq('auth_user_id',auth.user.id).eq('active',true).maybeSingle();
+    if(pe||!perfil){await SB.auth.signOut();errEl.textContent='Cuenta no autorizada. Contacta al administrador.';errEl.style.display='block';return;}
+    DB.currentUser={id:perfil.id,name:perfil.name,role:perfil.role};
+    await loadAllData();
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('login-email').value='';
-    document.getElementById('login-pwd').value='';
-    errEl.style.display='none';
-    updateUserUI();
-    applyRoleUI();
-    fillAllDropdowns();
-    await loadAllData();
+    updateUserUI();applyRoleUI();
     goPage('dashboard',document.querySelector('.na.active'));
-  } catch(e){
-    errEl.textContent='Error de conexión: '+e.message;errEl.style.display='block';
-  }
+  }catch(e){await SB.auth.signOut();DB.currentUser={id:null,name:'',role:''};DB.employees=[];DB.projects=[];DB.assignments=[];errEl.textContent='No se pudo iniciar sesión ni obtener datos autorizados.';errEl.style.display='block';}
 };
 
 // Cambiar contraseña en Supabase
-window.saveChgPwd = async function(){
-  let actual  = document.getElementById('cp-actual').value;
-  let nueva   = document.getElementById('cp-nueva').value;
-  let confirm2= document.getElementById('cp-confirm').value;
-  let msg     = document.getElementById('cp-msg');
-  msg.innerHTML='';
-  if(!actual||!nueva||!confirm2){msg.innerHTML='<div class="alt alt-w">Completa todos los campos.</div>';return;}
-  if(nueva.length<6){msg.innerHTML='<div class="alt alt-w">Mínimo 6 caracteres.</div>';return;}
-  if(nueva!==confirm2){msg.innerHTML='<div class="alt alt-w">Las contraseñas no coinciden.</div>';return;}
-
-  const {data:user,error:ue}=await SB.from('usuarios').select('pwd_hash').eq('id',DB.currentUser.id).single();
-  if(ue||!user||user.pwd_hash!==actual){msg.innerHTML='<div class="alt alt-d">Contraseña actual incorrecta.</div>';return;}
-
-  const {error}=await SB.from('usuarios').update({pwd_hash:nueva}).eq('id',DB.currentUser.id);
-  if(error){msg.innerHTML='<div class="alt alt-d">Error: '+error.message+'</div>';return;}
-  msg.innerHTML='<div class="alt alt-s">Contraseña actualizada.</div>';
-  setTimeout(()=>closeM('m-chgpwd'),1400);
+window.saveChgPwd=async function(){
+  const actual=document.getElementById('cp-actual').value,nueva=document.getElementById('cp-nueva').value,confirmada=document.getElementById('cp-confirm').value,msg=document.getElementById('cp-msg');
+  msg.textContent='';
+  if(!actual||!nueva||!confirmada){msg.textContent='Completa todos los campos.';return;}
+  if(nueva.length<12||nueva!==confirmada){msg.textContent='La nueva contraseña debe tener 12 caracteres como mínimo y coincidir con la confirmación.';return;}
+  const {data}=await SB.auth.getUser();if(!data?.user?.email){msg.textContent='Sesión inválida.';return;}
+  const {error:verify}=await SB.auth.signInWithPassword({email:data.user.email,password:actual});
+  if(verify){msg.textContent='Contraseña actual incorrecta.';return;}
+  const {error}=await SB.auth.updateUser({password:nueva});
+  if(error){msg.textContent='No se pudo actualizar la contraseña.';return;}
+  resetChgPwd();closeM('m-chgpwd');toast('Contraseña cambiada con Supabase Auth.','s');
 };
 
+window.doLogout=async function(){
+  if(!confirm('¿Cerrar sesión?'))return;
+  await SB.auth.signOut();
+  DB.currentUser={id:null,name:'',role:''};DB.employees=[];DB.projects=[];DB.assignments=[];DB.users=[];
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-email').value='';
+  document.getElementById('login-pwd').value='';
+  document.getElementById('login-error').style.display='none';
+};
 // ── CARGA INICIAL DE TODOS LOS DATOS ─────────────────────────────────────────
 async function loadAllData(){
   const [emps,proys,asigs,usrs,mst] = await Promise.all([
-    SB.from('empleados').select('*').order('apellidos'),
+    isAdmin()?SB.from('empleados').select('*').order('apellidos'):SB.rpc('listar_empleados_directorio'),
     SB.from('proyectos').select('*').order('codigo'),
     SB.from('asignaciones').select('*'),
-    SB.from('usuarios').select('*').order('name'),
+    isAdmin()?SB.from('usuarios').select('id,name,email,role,active,created,auth_user_id').order('name'):Promise.resolve({data:[],error:null}),
     SB.from('maestras').select('*'),
   ]);
 
-  if(!emps.error && emps.data)  DB.employees  = emps.data.map(sbToEmp);
-  if(!proys.error && proys.data) DB.projects   = proys.data.map(sbToProy);
-  if(!asigs.error && asigs.data) DB.assignments= asigs.data.map(sbToAsig);
+  if(emps.error||proys.error||asigs.error||usrs.error||mst.error)throw new Error('No se pudo leer información autorizada de Supabase.');
+  DB.employees=(emps.data||[]).map(sbToEmp);
+  DB.projects=(proys.data||[]).map(sbToProy);
+  DB.assignments=(asigs.data||[]).map(sbToAsig);
   if(!usrs.error  && usrs.data)  DB.users      = usrs.data;
   if(!mst.error   && mst.data && mst.data.length>0){
     // maestras stored as a single JSON row: {key: value[]}
@@ -3539,7 +3510,7 @@ function sbToEmp(r){
     especialidad:r.especialidad||'',cargo:r.cargo||'',area:r.area||'',
     tipo_contrato:r.tipo_contrato||'',fecha_ingreso:r.fecha_ingreso||'',
     fecha_fin_contrato:r.fecha_fin_contrato||'',salario:r.salario||null,
-    estado:r.estado||'Activo',observaciones:r.observaciones||'',historial:r.historial||[]};
+    estado:r.estado||'Activo',observaciones:r.observaciones||'',historial:r.historial||[],historial_contratos:r.historial_contratos||[]};
 }
 function sbToProy(r){
   return{id:r.id,codigo:r.codigo||'',nombre:r.nombre||'',cliente:r.cliente||'',
@@ -3556,6 +3527,9 @@ function sbToAsig(r){
 
 // ── CRUD EMPLEADOS ─────────────────────────────────────────────────────────────
 window.saveEmp = async function(){
+  const tipoContrato=document.getElementById('f-tipo').value;
+  const fechaFin=isIndefiniteContract(tipoContrato)?null:(document.getElementById('f-fin').value||null);
+  if(isFixedTermContract(tipoContrato)&&!fechaFin){toast('El contrato a plazo fijo requiere fecha de vencimiento.','w');return;}
   let cod=document.getElementById('f-cod').value.trim();
   let nom=document.getElementById('f-nom').value.trim();
   let ape=document.getElementById('f-ape').value.trim();
@@ -3576,12 +3550,16 @@ window.saveEmp = async function(){
     area:document.getElementById('f-area').value,
     salario:parseFloat(document.getElementById('f-sal').value)||null,
     estado:document.getElementById('f-est').value||'Activo',
-    tipo_contrato:document.getElementById('f-tipo').value,
+    tipo_contrato:tipoContrato,
     fecha_ingreso:document.getElementById('f-ing').value||null,
-    fecha_fin_contrato:document.getElementById('f-fin').value||null,
+    fecha_fin_contrato:fechaFin,
     observaciones:document.getElementById('f-obs').value.trim(),
   };
 
+  const dniUnico=payload.dni?.trim();
+  if(dniUnico && DB.employees.some(e=>e.id!==DB.editEmpId&&String(e.dni||'').trim()===dniUnico)){
+    toast('El DNI ya está registrado. Revisa la ficha existente antes de crear un duplicado.','w');return;
+  }
   let isNew=!DB.editEmpId;
   let res;
   if(isNew){
@@ -3601,6 +3579,7 @@ window.saveEmp = async function(){
   closeM('m-emp');
   toast(isNew?'✓ Empleado creado':'✓ Empleado actualizado');
   refreshActive();
+  window.sigralBackup?.saved(DB,isNew?'alta_empleado':'edicion_empleado');
 };
 
 window.delEmp = async function(){
@@ -3612,6 +3591,7 @@ window.delEmp = async function(){
   closeM('m-emp');
   toast('Empleado marcado como Retirado','w');
   renderEmpleados();
+  window.sigralBackup?.saved(DB,'retiro_empleado');
 };
 
 // ─── CESAR EMPLEADO ────────────────────────────────────────────────────────────
@@ -3657,28 +3637,15 @@ function cesarEmpleado(empId){
 }
 
 // Recontratar empleado cesado
-function recontratarEmpleado(empId){
-  let e=DB.employees.find(x=>x.id===empId);
-  if(!e)return;
-  let hoy=fd(new Date());
-  if(!confirm('¿Recontratar a '+e.apellidos+', '+e.nombres+'?\n\nEl empleado volverá a estado ACTIVO.\nRecuerda actualizar sus datos de contrato.'))return;
-  // Save recontract record
-  if(!e.historial_contratos)e.historial_contratos=[];
-  e.historial_contratos.push({
-    tipo:'recontratacion',
-    fecha_recontratacion:hoy,
-    obs:'Recontratación'
-  });
-  e.estado='Activo';
-  renderEmpleados();
-  fillAllDropdowns();
-  toast('✓ '+e.apellidos+', '+e.nombres+' recontratado como Activo.','s');
-  // Open modal to update contract
-  setTimeout(()=>openEmpModal(empId),500);
-  if(typeof SB!=='undefined'){
-    SB.from('empleados').update({estado:'Activo',historial_contratos:e.historial_contratos}).eq('id',empId)
-      .then(({error})=>{if(error)console.warn('Error recontratando:',error.message);});
-  }
+async function recontratarEmpleado(empId){
+  const e=DB.employees.find(x=>x.id===empId);if(!e)return;
+  if(!confirm('¿Recontratar a '+e.apellidos+', '+e.nombres+'?\nSe conservará el historial y deberás actualizar su nuevo contrato.'))return;
+  const historial_contratos=[...(e.historial_contratos||[]),{tipo:'recontratacion',fecha_recontratacion:fd(new Date()),obs:'Reingreso — completar contrato vigente'}];
+  const {error}=await SB.from('empleados').update({estado:'Activo',historial_contratos}).eq('id',empId);
+  if(error){toast('Error al registrar reingreso: '+error.message,'d');return;}
+  e.historial_contratos=historial_contratos;e.estado='Activo';
+  renderEmpleados();fillAllDropdowns();toast('Reingreso registrado. Actualiza el contrato vigente.','s');
+  openEmpModal(empId);
 }
 
 
@@ -3686,32 +3653,28 @@ function recontratarEmpleado(empId){
 // Renovación de contrato — guarda historial y nueva fecha
 window.confirmarRenov = async function(){
   let e=DB.employees.find(x=>x.id===DB.renewEmpId);
-  let nuevaFin='';
-  if(DB.renewTab==='dias'){
+  const nuevoTipo=document.getElementById('rn-tipo-nuevo').value||e.tipo_contrato;
+  const indefinido=isIndefiniteContract(nuevoTipo);
+  let nuevaFin=null;
+  if(!indefinido && DB.renewTab==='dias'){
     let dias=parseInt(document.getElementById('rn-dias').value);
     if(!dias||dias<1){toast('Ingresa el plazo en días.','w');return;}
     nuevaFin=fd(ad(getRenewStart(),dias-1));
-  } else {
+  } else if(!indefinido) {
     nuevaFin=document.getElementById('rn-fecha').value;
     if(!nuevaFin){toast('Selecciona la nueva fecha.','w');return;}
     if(new Date(nuevaFin+'T00:00:00')<getRenewStart()){toast('La fecha debe ser posterior al inicio.','w');return;}
   }
-  let nuevoTipo=document.getElementById('rn-tipo-nuevo').value||e.tipo_contrato;
-  let obs=document.getElementById('rn-obs').value.trim();
-  if(!e.historial)e.historial=[];
-  e.historial.push({fecha:fd(new Date()),fin_anterior:e.fecha_fin_contrato,nueva_fin:nuevaFin,tipo:nuevoTipo,obs});
-  e.fecha_fin_contrato=nuevaFin;e.tipo_contrato=nuevoTipo;
-  if(obs)e.observaciones=(e.observaciones?e.observaciones+' | ':'')+obs;
-
+  const obs=document.getElementById('rn-obs').value.trim();
+  const historial=[...(e.historial||[]),{fecha:fd(new Date()),fin_anterior:e.fecha_fin_contrato||null,nueva_fin:nuevaFin,tipo:nuevoTipo,obs}];
+  const observaciones=obs?(e.observaciones?e.observaciones+' | ':'')+obs:(e.observaciones||'');
   const {error}=await SB.from('empleados').update({
-    fecha_fin_contrato:nuevaFin,tipo_contrato:nuevoTipo,
-    observaciones:e.observaciones,historial:e.historial
+    fecha_fin_contrato:nuevaFin,tipo_contrato:nuevoTipo,observaciones,historial
   }).eq('id',DB.renewEmpId);
   if(error){toast('Error al renovar: '+error.message,'d');return;}
-
-  closeM('m-renov');
-  refreshActive();
-  toast(`✓ Contrato renovado hasta ${fdd(nuevaFin)}`);
+  e.historial=historial;e.fecha_fin_contrato=nuevaFin;e.tipo_contrato=nuevoTipo;e.observaciones=observaciones;
+  closeM('m-renov');refreshActive();
+  toast(indefinido?'✓ Contrato convertido a indefinido, sin vencimiento.':`✓ Contrato renovado hasta ${fdd(nuevaFin)}`);
 };
 
 // ── CRUD PROYECTOS ─────────────────────────────────────────────────────────────
@@ -3753,19 +3716,22 @@ window.saveProy = async function(){
   closeM('m-proy');
   toast(isNew?'✓ Proyecto creado':'✓ Proyecto actualizado');
   refreshActive();
+  window.sigralBackup?.saved(DB,isNew?'alta_proyecto':'edicion_proyecto');
 };
 
 window.delProy = async function(){
-  if(!confirm('¿Eliminar este proyecto y sus asignaciones?'))return;
-  await SB.from('asignaciones').delete().eq('proyecto_id',DB.editProyId);
-  const {error}=await SB.from('proyectos').delete().eq('id',DB.editProyId);
-  if(error){toast('Error: '+error.message,'d');return;}
-  DB.projects=DB.projects.filter(p=>p.id!==DB.editProyId);
-  DB.assignments=DB.assignments.filter(a=>a.proyecto_id!==DB.editProyId);
-  closeM('m-proy');
-  toast('Proyecto eliminado','w');
-  renderProyectos();
-};
+  const id=DB.editProyId;
+  const p=DB.projects.find(x=>x.id===id);
+  if(!p)return;
+  if(!confirm('¿Marcar el proyecto como CONCLUIDO?\nSe conservarán todas sus asignaciones, fechas e historial.'))return;
+  const {data,error}=await SB.from('proyectos').update({estado:'Concluido'}).eq('id',id).select().single();
+  if(error){toast('No se pudo concluir el proyecto: '+error.message,'d');return;}
+  const i=DB.projects.findIndex(x=>x.id===id);
+  if(i>=0)DB.projects[i]=sbToProy(data);
+  closeM('m-proy');refreshActive();
+  toast('Proyecto concluido. Historial y asignaciones conservados.','s');
+  window.sigralBackup?.saved(DB,'cierre_proyecto');
+}
 
 // ── CRUD ASIGNACIONES ─────────────────────────────────────────────────────────
 window.saveAsig = async function(){
@@ -3778,6 +3744,14 @@ window.saveAsig = async function(){
   if(!pid||!pue||!eid||!pct||!ini||!fin){toast('Todos los campos * son requeridos.','w');return;}
   if(pct<1||pct>100){toast('El porcentaje debe ser entre 1 y 100.','w');return;}
   if(!validateAsigFechas())return;
+  const fechaInicio=ini||null,fechaFin=fin||null;
+  const repetida=DB.assignments.some(a=>
+    String(a.id)!==String(DB.editAsigId||'') &&
+    Number(a.proyecto_id)===pid && Number(a.empleado_id)===eid &&
+    String(a.puesto||'').trim().toLowerCase()===pue.toLowerCase() &&
+    (a.fecha_ini||null)===fechaInicio && (a.fecha_fin||null)===fechaFin
+  );
+  if(repetida){toast('Asignación duplicada para el mismo empleado, proyecto, puesto y periodo.','w');return;}
 
   let payload={proyecto_id:pid,empleado_id:eid,puesto:pue,pct,
     fecha_ini:ini,fecha_fin:fin,obs:document.getElementById('a-obs').value.trim()};
@@ -3795,65 +3769,58 @@ window.saveAsig = async function(){
   closeM('m-asig');
   toast(isNew?'✓ Asignación creada':'✓ Asignación actualizada');
   refreshActive();
+  window.sigralBackup?.saved(DB,isNew?'alta_asignacion':'edicion_asignacion');
 };
 
 window.delAsig = async function(){
-  if(!confirm('¿Eliminar esta asignación?'))return;
-  const {error}=await SB.from('asignaciones').delete().eq('id',DB.editAsigId);
-  if(error){toast('Error: '+error.message,'d');return;}
-  DB.assignments=DB.assignments.filter(a=>a.id!==DB.editAsigId);
-  closeM('m-asig');
-  toast('Asignación eliminada','w');
-  renderAsignacion();
-};
+  const id=DB.editAsigId,a=DB.assignments.find(x=>x.id===id);
+  if(!a)return;
+  const hoy=fd(new Date());
+  if(a.fecha_ini && a.fecha_ini>hoy){toast('La asignación aún no empieza; corrige las fechas en lugar de cerrar.','w');return;}
+  if(a.fecha_fin && a.fecha_fin<hoy){toast('La asignación ya terminó; se conserva para trazabilidad.','w');return;}
+  if(!confirm('¿Finalizar esta asignación con fecha de hoy?\nSe mantendrá su historial.'))return;
+  const {data,error}=await SB.from('asignaciones').update({fecha_fin:hoy}).eq('id',id).select().single();
+  if(error){toast('Error al cerrar asignación: '+error.message,'d');return;}
+  const i=DB.assignments.findIndex(x=>x.id===id);
+  if(i>=0)DB.assignments[i]=sbToAsig(data);
+  closeM('m-asig');refreshActive();
+  toast('Asignación finalizada. Registro conservado.','s');
+  window.sigralBackup?.saved(DB,'cierre_asignacion');
+}
 
 // ── CESAR EMPLEADO (Supabase override) ───────────────────────────────────────
 window.cesarEmpleado = async function(empId){
   let e=DB.employees.find(x=>x.id===empId);
   if(!e)return;
-  if(!confirm(`¿Cesar a ${e.apellidos}, ${e.nombres}?\n\nEl empleado pasará a estado INACTIVO y no podrá asignarse a nuevos proyectos.\n\nPuedes reactivarlo editando su ficha posteriormente.`))return;
-  const {error}=await SB.from('empleados').update({estado:'Inactivo'}).eq('id',empId);
+  if(!confirm(`¿Confirmar cese de ${e.apellidos}, ${e.nombres}?\nSe registrará como CESADO con fecha de hoy, conservando el vencimiento original del contrato.`))return;
+  const hoy=fd(new Date());
+  const historial_contratos=[...(e.historial_contratos||[]),{
+    tipo:'cese',fecha_cese:hoy,fecha_ingreso_contrato:e.fecha_ingreso||null,
+    fecha_fin_contrato:e.fecha_fin_contrato||null,tipo_contrato:e.tipo_contrato||null,
+    cargo:e.cargo||null,area:e.area||null,salario:e.salario??null,
+    obs:'Cese registrado en aplicación SIGRAL'
+  }];
+  const {error}=await SB.from('empleados').update({estado:'Cesado',historial_contratos}).eq('id',empId);
   if(error){toast('Error al cesar: '+error.message,'d');return;}
-  e.estado='Inactivo';
+  e.historial_contratos=historial_contratos;e.estado='Cesado';
   // Refresh all affected views
   fillAllDropdowns(); // removes from gerente/asignacion combos
   renderEmpleados();
   if(document.getElementById('page-alertas').classList.contains('active'))renderAlertas();
   if(document.getElementById('page-dashboard').classList.contains('active'))renderDashboard();
-  toast(`✓ ${e.apellidos}, ${e.nombres} cesado — estado: Inactivo`,'w');
+  toast(`✓ ${e.apellidos}, ${e.nombres} cesado; historial preservado.`,'w');
+  window.sigralBackup?.saved(DB,'cese_empleado');
 };
 
 // ── CRUD USUARIOS ─────────────────────────────────────────────────────────────
-window.saveUsr = async function(){
-  let name=document.getElementById('u-nom').value.trim();
-  let email=document.getElementById('u-email').value.trim().toLowerCase();
-  let pwd=document.getElementById('u-pwd').value;
-  let role=document.getElementById('u-rol').value;
-  if(!name||!email){toast('Nombre y email son requeridos.','w');return;}
-  if(!DB.editUsrId&&!pwd){toast('La contraseña es requerida para nuevos usuarios.','w');return;}
-  if(pwd&&pwd.length<6){toast('Mínimo 6 caracteres.','w');return;}
-
-  let payload={name,email,role};
-  if(pwd)payload.pwd_hash=pwd;
-  if(!DB.editUsrId)payload.active=true;
-
-  let isNew=!DB.editUsrId;
-  let res;
-  if(isNew){
-    let dup=await SB.from('usuarios').select('id').eq('email',email).single();
-    if(!dup.error&&dup.data){toast('Ya existe un usuario con ese email.','w');return;}
-    res=await SB.from('usuarios').insert([payload]).select().single();
-  } else {
-    res=await SB.from('usuarios').update(payload).eq('id',DB.editUsrId).select().single();
-  }
-  if(res.error){toast('Error: '+res.error.message,'d');return;}
-
-  if(isNew) DB.users.push(res.data);
-  else { let i=DB.users.findIndex(u=>u.id===DB.editUsrId); if(i>=0)DB.users[i]=res.data; }
-
-  closeM('m-usr');
-  toast(isNew?'✓ Usuario creado':'✓ Usuario actualizado');
-  renderUsuarios();
+window.saveUsr=async function(){
+  if(!isAdmin())return;
+  const u=DB.users.find(x=>x.id===DB.editUsrId),name=document.getElementById('u-nom').value.trim(),role=document.getElementById('u-rol').value;
+  if(!u){toast('Crear usuarios en Supabase Auth; vincular auth_user_id.','w');return;}
+  if(!name||!['admin','viewer'].includes(role)){toast('Nombre o rol inválido.','w');return;}
+  const {data,error}=await SB.from('usuarios').update({name,role}).eq('id',u.id).select('id,name,email,role,active,created,auth_user_id').single();
+  if(error){toast('Error: '+error.message,'d');return;}
+  Object.assign(u,data);closeM('m-usr');renderUsuarios();toast('Perfil actualizado.','s');
 };
 
 window.toggleUsr = async function(uid){
@@ -3899,67 +3866,9 @@ window.moveMaestraItem=function(key,idx,dir){
 };
 
 // ── IMPORTAR desde Excel → Supabase ──────────────────────────────────────────
-window.processImport = async function(){
-  if(!pendingRows.length)return;
-  let ins=0,upd=0,errs=[];
-
-  if(importMode==='empleados'){
-    for(let [i,r] of pendingRows.entries()){
-      if(!r.nombres){errs.push('Fila '+(i+2)+': sin nombres');continue;}
-      let cod=r.codigo||('EMP_'+(i+1));
-      let payload={codigo:cod,nombres:r.nombres,apellidos:r.apellidos||'',dni:r.dni||'',
-        email:r.email||'',telefono:r.telefono||'',profesion:r.profesion||'',
-        especialidad:r.especialidad||'',cargo:r.cargo||'',area:r.area||'',
-        tipo_contrato:r.tipo_contrato||'',fecha_ingreso:parseDate(r.fecha_ingreso)||null,
-        fecha_fin_contrato:parseDate(r.fecha_fin_contrato)||null,
-        salario:parseFloat(r.salario)||null,estado:r.estado||'Activo',observaciones:r.observaciones||''};
-      // Check existing
-      let ex=DB.employees.find(e=>e.codigo===cod);
-      if(ex){
-        let {error}=await SB.from('empleados').update(payload).eq('id',ex.id);
-        if(error)errs.push('Fila '+(i+2)+': '+error.message);else{Object.assign(ex,payload);upd++;}
-      } else {
-        let {data,error}=await SB.from('empleados').insert([payload]).select().single();
-        if(error)errs.push('Fila '+(i+2)+': '+error.message);else{DB.employees.push(sbToEmp(data));ins++;}
-      }
-    }
-  } else if(importMode==='proyectos'){
-    for(let [i,r] of pendingRows.entries()){
-      if(!r.nombre){errs.push('Fila '+(i+2)+': sin nombre');continue;}
-      let cod=r.codigo||('PRY-'+(DB.nextProyId+i));
-      let payload={codigo:cod,nombre:r.nombre,cliente:r.cliente||'',sector:r.sector||'',
-        tipo:r.tipo||'',estado:r.estado||'Formulacion',
-        fecha_inicio:parseDate(r.fecha_inicio)||null,fecha_fin:parseDate(r.fecha_fin)||null,
-        monto:parseFloat(r.monto)||null,recursos_req:parseInt(r.recursos_req)||0,
-        ubicacion:r.ubicacion||'',gerente:r.gerente||'',descripcion:r.descripcion||''};
-      let ex=DB.projects.find(p=>p.codigo===cod);
-      if(ex){
-        let {error}=await SB.from('proyectos').update(payload).eq('id',ex.id);
-        if(error)errs.push('Fila '+(i+2)+': '+error.message);else{Object.assign(ex,payload);upd++;}
-      } else {
-        let {data,error}=await SB.from('proyectos').insert([payload]).select().single();
-        if(error)errs.push('Fila '+(i+2)+': '+error.message);else{DB.projects.push(sbToProy(data));ins++;}
-      }
-    }
-  } else if(importMode==='asignaciones'){
-    for(let [i,r] of pendingRows.entries()){
-      let proy=DB.projects.find(p=>p.codigo===(r.codigo_proyecto||''));
-      let emp=DB.employees.find(e=>e.codigo===(r.codigo_empleado||''));
-      if(!proy){errs.push('Fila '+(i+2)+': proyecto "'+r.codigo_proyecto+'" no encontrado');continue;}
-      if(!emp){errs.push('Fila '+(i+2)+': empleado "'+r.codigo_empleado+'" no encontrado');continue;}
-      let pct=parseInt(r.pct)||100;
-      let payload={proyecto_id:proy.id,empleado_id:emp.id,puesto:r.puesto||'Sin especificar',pct,
-        fecha_ini:parseDate(r.fecha_inicio)||null,fecha_fin:parseDate(r.fecha_fin)||null,obs:r.observaciones||''};
-      let {data,error}=await SB.from('asignaciones').insert([payload]).select().single();
-      if(error)errs.push('Fila '+(i+2)+': '+error.message);else{DB.assignments.push(sbToAsig(data));ins++;}
-    }
-  }
-
-  let msg=importMode+': '+ins+' nuevos, '+upd+' actualizados.'+(errs.length?' '+errs.length+' errores.':'');
-  showIM(msg,errs.length?'alt-w':'alt-s');
-  errs.slice(0,3).forEach(e=>{let el=document.getElementById('import-msg');if(el){let d=document.createElement('div');d.className='alt alt-w';d.style.marginTop='4px';d.textContent=e;el.appendChild(d);}});
-  clearImport();
-  renderDashboard();
+// Importación heredada no es transaccional ni idempotente: bloqueada hasta motor validado.
+window.processImport=async function(){
+  showIM('Importación de producción bloqueada. Usa la conciliación aprobada y el ejecutor transaccional del servidor. No se escribieron datos.','alt-w');
 };
 
 // ── INICIO: esperar DOM y cargar datos ────────────────────────────────────────
@@ -3971,110 +3880,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('login-email').focus();
 });
 
-/* ════════════════════════════════════════════════════════════════════════════
-   SQL PARA CREAR LAS TABLAS EN SUPABASE
-   Pega este bloque en el SQL Editor de tu proyecto Supabase
-   ════════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE IF NOT EXISTS empleados (
-  id              bigint generated always as identity primary key,
-  codigo          text unique not null,
-  nombres         text not null,
-  apellidos       text not null default '',
-  dni             text,
-  email           text,
-  telefono        text,
-  profesion       text,
-  especialidad    text,
-  cargo           text,
-  area            text,
-  tipo_contrato   text,
-  fecha_ingreso   date,
-  fecha_fin_contrato date,
-  salario         numeric(12,2),
-  estado          text default 'Activo',
-  observaciones   text,
-  historial       jsonb default '[]',
-  created_at      timestamptz default now()
-);
-
-CREATE TABLE IF NOT EXISTS proyectos (
-  id              bigint generated always as identity primary key,
-  codigo          text unique not null,
-  nombre          text not null,
-  cliente         text,
-  sector          text,
-  tipo            text,
-  estado          text default 'Formulacion',
-  fecha_inicio    date,
-  fecha_fin       date,
-  monto           numeric(16,2),
-  recursos_req    int default 0,
-  ubicacion       text,
-  gerente         text,
-  descripcion     text,
-  created_at      timestamptz default now()
-);
-
-CREATE TABLE IF NOT EXISTS asignaciones (
-  id              bigint generated always as identity primary key,
-  proyecto_id     bigint references proyectos(id) on delete cascade,
-  empleado_id     bigint references empleados(id) on delete cascade,
-  puesto          text,
-  pct             int default 100,
-  fecha_ini       date,
-  fecha_fin       date,
-  obs             text,
-  created_at      timestamptz default now()
-);
-
-CREATE TABLE IF NOT EXISTS usuarios (
-  id              bigint generated always as identity primary key,
-  name            text not null,
-  email           text unique not null,
-  pwd_hash        text not null,
-  role            text default 'viewer',
-  active          boolean default true,
-  created         date default now(),
-  created_at      timestamptz default now()
-);
-
--- Usuario administrador inicial (contraseña: sigral2024!)
-INSERT INTO usuarios (name,email,pwd_hash,role,active)
-VALUES ('Pedro Lavado','pedro@sigral.com','sigral2024!','admin',true)
-ON CONFLICT (email) DO NOTHING;
-
-CREATE TABLE IF NOT EXISTS maestras (
-  tabla   text primary key,
-  valores jsonb not null default '[]'
-);
-
--- Valores iniciales de tablas maestras
-INSERT INTO maestras (tabla,valores) VALUES
-('sectores','["Público","Privado","Minería","Energía","Transporte","Salud","Educación","Agua y Saneamiento","Industria","Agricultura","Otro"]'),
-('tiposServicio','["Supervisión de Obra","Gerencia de Proyecto","Ingeniería Básica","Ingeniería de Detalle","Consultoría","Expediente Técnico","Licitación","Estudios de Factibilidad","Otro"]'),
-('estadosProyecto','["Formulación","Licitación","En curso","Paralizado","Concluido","Suspendido","En Garantía"]'),
-('estadosEmpleado','["Activo","Inactivo","Retirado","Vacaciones","Licencia"]'),
-('tiposContrato','["Indefinido","Plazo Fijo","Por Obra","Honorarios","Practicante","CAS","Locación de Servicios","Tiempo Parcial"]'),
-('cargos','["Gerente de Proyectos","Jefe de Supervisión","Supervisor Residente","Especialista Estructural","Especialista Sanitario","Especialista Eléctrico","Especialista Vial","Especialista Ambiental","Especialista en Costos","Arquitecto Proyectista","Asistente de Ingeniería","Contador/a","Jefe Administrativo","Inspector de Obra","Técnico de Campo","Topógrafo"]'),
-('areas','["Dirección","Gerencia de Proyectos","Supervisión","Ingeniería","Licitaciones","Administración","Finanzas","Recursos Humanos","Logística","Legal","Sistemas"]'),
-('profesiones','["Ing. Civil","Ing. Sanitaria","Ing. Electromecánico","Ing. Eléctrico","Ing. Ambiental","Ing. Industrial","Arquitecto/a","Contador/a","Administrador/a","Abogado/a","Economista","Topógrafo/a","Técnico de Construcción","Otro"]')
-ON CONFLICT (tabla) DO NOTHING;
-
--- HABILITAR RLS y políticas de acceso (anon puede leer, autenticación por pwd_hash en app)
-ALTER TABLE empleados    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE proyectos    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE asignaciones ENABLE ROW LEVEL SECURITY;
-ALTER TABLE usuarios     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE maestras     ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "allow_all" ON empleados    FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all" ON proyectos    FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all" ON asignaciones FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all" ON usuarios     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all" ON maestras     FOR ALL USING (true) WITH CHECK (true);
-
-   ════════════════════════════════════════════════════════════════════════════ */
+/* SQL de seguridad y esquema disponibles en sql/ y docs/. */
 </script>
+<script src="scripts/backup-local.js"></script>
+<script src="scripts/operational-dashboard.js"></script>
 </body>
 </html>

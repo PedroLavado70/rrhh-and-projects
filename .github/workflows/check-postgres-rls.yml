@@ -1,0 +1,44 @@
+name: SIGRAL PostgreSQL RLS staging verification
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [security/supabase-auth-staging]
+permissions:
+  contents: read
+jobs:
+  rls-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: sigral_test_only
+          POSTGRES_DB: sigral_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sigral_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: sigral_test_only
+      PGDATABASE: sigral_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Prepare synthetic schema and unsafe legacy policies
+        run: psql -X -v ON_ERROR_STOP=1 -f sql/tests/fixture_auth.sql
+      - name: Apply candidate RLS migration in isolated database
+        run: psql -X -v ON_ERROR_STOP=1 -f sql/10_corte_auth_rls_STAGING.sql
+      - name: Apply candidate indefinite-contract and assignment integrity constraints
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f sql/20_RH001_integridad_STAGING.sql
+          psql -X -v ON_ERROR_STOP=1 -f sql/25_asignaciones_idempotentes_STAGING.sql
+      - name: Assert admin viewer anon disabled policies
+        run: psql -X -v ON_ERROR_STOP=1 -f sql/tests/assert_auth_rls.sql

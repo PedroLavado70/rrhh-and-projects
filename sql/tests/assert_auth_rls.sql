@@ -96,15 +96,19 @@ END $;
 
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
-DO $$
+DO $
+DECLARE denied boolean := false;
 BEGIN
  IF (SELECT count(*) FROM public.proyectos)<>0 THEN
    RAISE EXCEPTION 'FAIL: usuario desactivado accede a proyectos';
  END IF;
  BEGIN
    PERFORM count(*) FROM public.listar_empleados_directorio();
-   RAISE EXCEPTION 'FAIL: usuario desactivado accede al directorio';
- EXCEPTION WHEN raise_exception THEN NULL;
+ EXCEPTION WHEN raise_exception THEN
+   denied := true;
  END;
-END $$;
+ IF NOT denied THEN
+   RAISE EXCEPTION 'FAIL: usuario desactivado accede al directorio';
+ END IF;
+END $;
 RESET ROLE;

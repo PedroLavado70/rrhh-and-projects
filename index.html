@@ -301,6 +301,15 @@ code{color:var(--a2);font-size:10px;}
 .print-header .ph-sub{font-size:10pt;color:#475569;margin-bottom:2pt;}
 .print-header .ph-date{font-size:9pt;color:#94a3b8;margin-top:6pt;padding-top:6pt;border-top:1px solid #e2e8f0;}
 .bcc{background:rgba(249,115,22,.15);color:#f97316;font-weight:700;}
+/* Dashboard: scroll independiente, evita que los listados desplacen los gráficos. */
+#dash-asig-alert,#dash-proy-sin-rec,#dash-alertas-table {
+  max-height:330px; overflow-y:auto; overscroll-behavior:contain;
+  scrollbar-width:thin; scrollbar-color:var(--border) transparent;
+  padding-right:5px;
+}
+#dash-asig-alert::-webkit-scrollbar,#dash-proy-sin-rec::-webkit-scrollbar,#dash-alertas-table::-webkit-scrollbar {width:7px;}
+#dash-asig-alert::-webkit-scrollbar-thumb,#dash-proy-sin-rec::-webkit-scrollbar-thumb,#dash-alertas-table::-webkit-scrollbar-thumb {background:var(--border);border-radius:8px;}
+@media(max-width:740px){#dash-asig-alert,#dash-proy-sin-rec,#dash-alertas-table{max-height:265px;}}
 </style>
 </head>
 <body>
@@ -1301,7 +1310,7 @@ function renderDashAsigAlert(proys){
     if(!e||e.estado==='Cesado'||e.estado==='Retirado'||e.estado==='Inactivo')return false;
     if(proyIds&&!proyIds.has(a.proyecto_id))return false;
     return true;
-  }).sort((a,b)=>dv(a.fecha_fin)-dv(b.fecha_fin)).slice(0,8);
+  }).sort((a,b)=>dv(a.fecha_fin)-dv(b.fecha_fin);
   if(!porTerminar.length){document.getElementById('dash-asig-alert').innerHTML=`<div class="empty"><h3>Sin asignaciones por terminar</h3><p>No hay asignaciones en los próximos 30 días.</p></div>`;return;}
   document.getElementById('dash-asig-alert').innerHTML=porTerminar.map(a=>{
     let d=dv(a.fecha_fin);

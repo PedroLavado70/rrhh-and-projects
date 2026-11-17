@@ -67,7 +67,7 @@ RESET ROLE;
 -- Un visor no puede escribir aunque tenga permiso de lectura.
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
-DO $
+DO $check_viewer$
 DECLARE affected bigint;
 BEGIN
   UPDATE public.proyectos SET nombre='Escritura no autorizada' WHERE id=1;
@@ -75,11 +75,11 @@ BEGIN
   IF affected <> 0 THEN
     RAISE EXCEPTION 'FAIL: viewer modificó proyecto';
   END IF;
-END $;
+END $check_viewer$;
 RESET ROLE;
 
 -- Integridad de contratos y asignaciones: deben fallar cambios inválidos.
-DO $
+DO $check_integrity$
 BEGIN
   BEGIN
     UPDATE public.empleados SET fecha_fin_contrato='2026-12-31' WHERE codigo='TEST-01';
@@ -92,7 +92,7 @@ BEGIN
     RAISE EXCEPTION 'FAIL: asignación duplicada fue aceptada';
   EXCEPTION WHEN unique_violation THEN NULL;
   END;
-END $;
+END $check_integrity$;
 
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);

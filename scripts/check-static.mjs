@@ -1,0 +1,21 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+
+const html=fs.readFileSync('index.html','utf8');
+const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>m[1]).filter(s=>s.trim());
+assert.ok(scripts.length>=2,'Debe haber scripts internos.');
+scripts.forEach((script,i)=>new vm.Script(script,{filename:'index.html.inline-'+i}));
+assert.match(html,/window\.doLogin\s*=\s*async\s*function/);
+assert.match(html,/SB\.auth\.signInWithPassword/);
+assert.match(html,/SB\.auth\.signOut/);
+assert.match(html,/function isIndefiniteContract/);
+assert.match(html,/fin\.disabled=blocked/);
+assert.match(html,/fecha_fin_contrato:fechaFin/);
+assert.match(html,/historial_contratos:r\.historial_contratos\|\|\[\]/);
+assert.match(html,/window\.processImport=async function\(\)\{/);
+assert.doesNotMatch(html,/\.select\(['"]pwd_hash['"]\)/);
+assert.doesNotMatch(html,/sigral2024!/);
+assert.doesNotMatch(html,/CREATE POLICY "allow_all"/i);
+assert.doesNotMatch(html,/window\.processImport\s*=\s*async function\(\)\{[\s\S]*?await SB\.from\(['"]empleados['"]\)\.insert/);
+console.log('OK: sintaxis de scripts internos + invariantes estáticas RH-001 y Auth.');

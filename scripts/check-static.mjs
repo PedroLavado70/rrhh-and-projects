@@ -39,6 +39,10 @@ fields['f-tipo'].value='Plazo Fijo';
 context.syncContractEndField();
 assert.equal(fields['f-fin'].disabled,false);
 assert.equal(fields['f-fin'].required,true);
+fields['f-tipo'].value='Locación de Servicios';
+context.syncContractEndField();
+assert.equal(fields['f-fin'].disabled,false);
+assert.equal(fields['f-fin'].required,false);
 
 const mapperStart=html.indexOf('function sbToEmp(r){');
 const mapperEnd=html.indexOf('function sbToProy(r){',mapperStart);

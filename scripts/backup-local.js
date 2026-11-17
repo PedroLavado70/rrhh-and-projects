@@ -9,24 +9,24 @@
  async function ensureSubfolder(parent,name){return parent.getDirectoryHandle(name,{create:true});}
  async function fileBytes(model,reason){
    if(!window.XLSX)throw new Error('No disponible el módulo XLSX');
-   const wb=XLSX.utils.book_new();
+   const wb=window.XLSX.utils.book_new();
    const lists=[
      ['Empleados',model.employees||[]],['Proyectos',model.projects||[]],
      ['Asignaciones',model.assignments||[]]
    ];
    for(const [name,records] of lists){
      const arr=records.map(r=>({...r,historial:JSON.stringify(r.historial||[]),historial_contratos:JSON.stringify(r.historial_contratos||[])}));
-     const sh=XLSX.utils.json_to_sheet(arr.length?arr:[{aviso:'Sin registros'}]);
-     XLSX.utils.book_append_sheet(wb,sh,name);
+     const sh=window.XLSX.utils.json_to_sheet(arr.length?arr:[{aviso:'Sin registros'}]);
+     window.XLSX.utils.book_append_sheet(wb,sh,name);
    }
-   const meta=XLSX.utils.aoa_to_sheet([
+   const meta=window.XLSX.utils.aoa_to_sheet([
      ['SIGRAL RRHH','Exportación de consulta — NO restituye toda la BD'],
      ['Fecha UTC',new Date().toISOString()],['Motivo',reason],
      ['Empleados',(model.employees||[]).length],['Proyectos',(model.projects||[]).length],
      ['Asignaciones',(model.assignments||[]).length]
    ]);
-   XLSX.utils.book_append_sheet(wb,meta,'Control');
-   return XLSX.write(wb,{bookType:'xlsx',type:'array'});
+   window.XLSX.utils.book_append_sheet(wb,meta,'Control');
+   return window.XLSX.write(wb,{bookType:'xlsx',type:'array'});
  }
  async function write(handle,bytes){const writable=await handle.createWritable();try{await writable.write(bytes);await writable.close()}catch(e){try{await writable.abort()}catch{}throw e}}
  async function saveNow(model,reason){

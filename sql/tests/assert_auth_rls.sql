@@ -96,7 +96,7 @@ END $check_integrity$;
 
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
-DO $
+DO $check_disabled$
 DECLARE denied boolean := false;
 BEGIN
  IF (SELECT count(*) FROM public.proyectos)<>0 THEN
@@ -110,5 +110,5 @@ BEGIN
  IF NOT denied THEN
    RAISE EXCEPTION 'FAIL: usuario desactivado accede al directorio';
  END IF;
-END $;
+END $check_disabled$;
 RESET ROLE;

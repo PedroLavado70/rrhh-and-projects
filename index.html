@@ -1310,7 +1310,7 @@ function renderDashAsigAlert(proys){
     if(!e||e.estado==='Cesado'||e.estado==='Retirado'||e.estado==='Inactivo')return false;
     if(proyIds&&!proyIds.has(a.proyecto_id))return false;
     return true;
-  }).sort((a,b)=>dv(a.fecha_fin)-dv(b.fecha_fin);
+  }).sort((a,b)=>dv(a.fecha_fin)-dv(b.fecha_fin));
   if(!porTerminar.length){document.getElementById('dash-asig-alert').innerHTML=`<div class="empty"><h3>Sin asignaciones por terminar</h3><p>No hay asignaciones en los próximos 30 días.</p></div>`;return;}
   document.getElementById('dash-asig-alert').innerHTML=porTerminar.map(a=>{
     let d=dv(a.fecha_fin);

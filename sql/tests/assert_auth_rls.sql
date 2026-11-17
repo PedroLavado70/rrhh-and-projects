@@ -64,6 +64,36 @@ BEGIN
  END IF;
 END $$;
 RESET ROLE;
+-- Un visor no puede escribir aunque tenga permiso de lectura.
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+DO $
+DECLARE affected bigint;
+BEGIN
+  UPDATE public.proyectos SET nombre='Escritura no autorizada' WHERE id=1;
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 0 THEN
+    RAISE EXCEPTION 'FAIL: viewer modificó proyecto';
+  END IF;
+END $;
+RESET ROLE;
+
+-- Integridad de contratos y asignaciones: deben fallar cambios inválidos.
+DO $
+BEGIN
+  BEGIN
+    UPDATE public.empleados SET fecha_fin_contrato='2026-12-31' WHERE codigo='TEST-01';
+    RAISE EXCEPTION 'FAIL: un indefinido aceptó vencimiento';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+  BEGIN
+    INSERT INTO public.asignaciones(proyecto_id,empleado_id,puesto,fecha_ini,fecha_fin)
+    VALUES (1,1,'Inspector','2026-01-01',NULL);
+    RAISE EXCEPTION 'FAIL: asignación duplicada fue aceptada';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+END $;
+
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
 DO $$

@@ -3478,11 +3478,12 @@ window.doLogin=async function(){
     const {data:perfil,error:pe}=await SB.from('usuarios').select('id,name,email,role,active,auth_user_id').eq('auth_user_id',auth.user.id).eq('active',true).maybeSingle();
     if(pe||!perfil){await SB.auth.signOut();errEl.textContent='Cuenta no autorizada. Contacta al administrador.';errEl.style.display='block';return;}
     DB.currentUser={id:perfil.id,name:perfil.name,role:perfil.role};
+    await loadAllData();
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('login-email').value='';
     updateUserUI();applyRoleUI();
-    await loadAllData();goPage('dashboard',document.querySelector('.na.active'));
-  }catch(e){await SB.auth.signOut();errEl.textContent='No se pudo iniciar sesión.';errEl.style.display='block';}
+    goPage('dashboard',document.querySelector('.na.active'));
+  }catch(e){await SB.auth.signOut();DB.currentUser={id:null,name:'',role:''};DB.employees=[];DB.projects=[];DB.assignments=[];errEl.textContent='No se pudo iniciar sesión ni obtener datos autorizados.';errEl.style.display='block';}
 }
 };
 
@@ -3513,16 +3514,17 @@ window.doLogout=async function(){
 // ── CARGA INICIAL DE TODOS LOS DATOS ─────────────────────────────────────────
 async function loadAllData(){
   const [emps,proys,asigs,usrs,mst] = await Promise.all([
-    SB.from(isAdmin()?'empleados':'empleados_directorio').select('*').order('apellidos'),
+    isAdmin()?SB.from('empleados').select('*').order('apellidos'):SB.rpc('listar_empleados_directorio'),
     SB.from('proyectos').select('*').order('codigo'),
     SB.from('asignaciones').select('*'),
     isAdmin()?SB.from('usuarios').select('id,name,email,role,active,created,auth_user_id').order('name'):Promise.resolve({data:[],error:null}),
     SB.from('maestras').select('*'),
   ]);
 
-  if(!emps.error && emps.data)  DB.employees  = emps.data.map(sbToEmp);
-  if(!proys.error && proys.data) DB.projects   = proys.data.map(sbToProy);
-  if(!asigs.error && asigs.data) DB.assignments= asigs.data.map(sbToAsig);
+  if(emps.error||proys.error||asigs.error||usrs.error||mst.error)throw new Error('No se pudo leer información autorizada de Supabase.');
+  DB.employees=(emps.data||[]).map(sbToEmp);
+  DB.projects=(proys.data||[]).map(sbToProy);
+  DB.assignments=(asigs.data||[]).map(sbToAsig);
   if(!usrs.error  && usrs.data)  DB.users      = usrs.data;
   if(!mst.error   && mst.data && mst.data.length>0){
     // maestras stored as a single JSON row: {key: value[]}
@@ -3812,16 +3814,23 @@ window.delAsig = async function(){
 window.cesarEmpleado = async function(empId){
   let e=DB.employees.find(x=>x.id===empId);
   if(!e)return;
-  if(!confirm(`¿Cesar a ${e.apellidos}, ${e.nombres}?\n\nEl empleado pasará a estado INACTIVO y no podrá asignarse a nuevos proyectos.\n\nPuedes reactivarlo editando su ficha posteriormente.`))return;
-  const {error}=await SB.from('empleados').update({estado:'Inactivo'}).eq('id',empId);
+  if(!confirm(`¿Confirmar cese de ${e.apellidos}, ${e.nombres}?\nSe registrará como CESADO con fecha de hoy, conservando el vencimiento original del contrato.`))return;
+  const hoy=fd(new Date());
+  const historial_contratos=[...(e.historial_contratos||[]),{
+    tipo:'cese',fecha_cese:hoy,fecha_ingreso_contrato:e.fecha_ingreso||null,
+    fecha_fin_contrato:e.fecha_fin_contrato||null,tipo_contrato:e.tipo_contrato||null,
+    cargo:e.cargo||null,area:e.area||null,salario:e.salario??null,
+    obs:'Cese registrado en aplicación SIGRAL'
+  }];
+  const {error}=await SB.from('empleados').update({estado:'Cesado',historial_contratos}).eq('id',empId);
   if(error){toast('Error al cesar: '+error.message,'d');return;}
-  e.estado='Inactivo';
+  e.historial_contratos=historial_contratos;e.estado='Cesado';
   // Refresh all affected views
   fillAllDropdowns(); // removes from gerente/asignacion combos
   renderEmpleados();
   if(document.getElementById('page-alertas').classList.contains('active'))renderAlertas();
   if(document.getElementById('page-dashboard').classList.contains('active'))renderDashboard();
-  toast(`✓ ${e.apellidos}, ${e.nombres} cesado — estado: Inactivo`,'w');
+  toast(`✓ ${e.apellidos}, ${e.nombres} cesado; historial preservado.`,'w');
 };
 
 // ── CRUD USUARIOS ─────────────────────────────────────────────────────────────

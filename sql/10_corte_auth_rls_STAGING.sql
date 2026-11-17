@@ -84,7 +84,7 @@ BEGIN
 END $$;
 
 REVOKE ALL ON public.empleados,public.proyectos,public.asignaciones,public.usuarios,public.maestras
-  FROM anon,authenticated;
+  FROM PUBLIC,anon,authenticated;
 
 -- Los administradores gestionan datos personales; los viewers usan RPC de directorio.
 GRANT SELECT,INSERT,UPDATE,DELETE ON public.empleados TO authenticated;

@@ -2,7 +2,7 @@
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer"><title>SIGRAL | Verificar acceso Supabase Auth</title>
 <style>body{margin:0;background:#edf2f8;font-family:system-ui,sans-serif;color:#173353}main{max-width:460px;margin:8vh auto;padding:26px;background:white;border-radius:14px;box-shadow:0 3px 18px #1e345221}h1{font-size:22px}p{line-height:1.5;color:#526477}label{display:block;margin-top:14px;font-weight:600}input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #c8d5e3;border-radius:7px;font-size:15px;margin-top:6px}button{background:#194b7b;color:white;border:0;padding:12px 18px;margin-top:18px;border-radius:7px;cursor:pointer}button:disabled{opacity:.6;cursor:wait}#status{white-space:pre-line;margin-top:17px;padding:12px;background:#f6f8fb;border-radius:7px}footer{margin-top:20px;font-size:12px;color:#65778a}</style>
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.76.1/dist/umd/supabase.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head><body><main><h1>SIGRAL RRHH — Prueba de acceso</h1>
 <p>Verifica aquí la contraseña de <strong>Supabase Auth</strong>. Esta página no abre ni descarga información de empleados, proyectos o contratos.</p>
 <form id="login"><label>Correo de la cuenta invitada<input id="email" type="email" autocomplete="username" required></label>
@@ -27,7 +27,7 @@ window.addEventListener('load',()=>{
       if(error||!data?.user){status.textContent='Supabase Auth rechazó el acceso. Comprueba que configuraste la contraseña de Auth, no la antigua.';return;}
       status.textContent='✓ CONTRASEÑA CORRECTA. Supabase Auth confirmó el acceso. La vinculación de tu cuenta con el administrador SIGRAL se verificó previamente en la base de datos. La aplicación publicada todavía requiere el corte de seguridad.';
     }catch(e){status.textContent='No se pudo conectar con Supabase Auth. Comprueba tu conexión y vuelve a intentar.';}
-    finally{await client?.auth.signOut();button.disabled=false;}
+    finally{try{await client?.auth.signOut();}catch(_){}button.disabled=false;}
   });
 });
 </script></body></html>

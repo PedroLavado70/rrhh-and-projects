@@ -810,8 +810,7 @@ let DB={
     {id:9,proyecto_id:6,empleado_id:9,puesto:'Especialista Eléctrico',pct:100,fecha_ini:'2024-08-01',fecha_fin:fd(ad(new Date(),18)),obs:''},
   ],
   users:[
-    {id:1,name:'Pedro Lavado',email:'pedro@sigral.com',role:'admin',active:true,created:'2024-01-01',pwdHash:'sigral2024!'},
-    {id:2,name:'Ana García',email:'ana.garcia@sigral.com',role:'viewer',active:true,created:'2024-03-15',pwdHash:'viewer123'},
+    // Usuarios demo deshabilitados: únicamente Supabase Auth.
   ],
   nextEmpId:10,nextProyId:7,nextAsigId:10,nextUsrId:3,
   maestras:{
@@ -3297,6 +3296,7 @@ function renderUsuarios(){
   </tr>`).join('')}</tbody></table></div></div>`;
 }
 function openUsrModal(uid){
+  if(!uid){toast('Alta de usuarios: Supabase Auth + vinculación de auth_user_id.','w');return;}
   DB.editUsrId=uid;
   let note=document.getElementById('pwd-req-note');
   if(uid){
@@ -3305,6 +3305,7 @@ function openUsrModal(uid){
     document.getElementById('u-nom').value=u.name;
     document.getElementById('u-email').value=u.email;
     document.getElementById('u-pwd').value='';
+    document.getElementById('u-pwd').disabled=true;
     document.getElementById('u-rol').value=u.role;
     if(note)note.textContent='(dejar en blanco para no cambiar)';
   } else {
@@ -3467,72 +3468,55 @@ function showLoading(id){
 
 // ── AUTENTICACIÓN CONTRA SUPABASE tabla "usuarios" ────────────────────────────
 // Reemplaza doLogin() para autenticar contra Supabase
-window.doLogin = async function(){
-  let email  = document.getElementById('login-email').value.trim().toLowerCase();
-  let pwd    = document.getElementById('login-pwd').value;
-  let errEl  = document.getElementById('login-error');
-  errEl.style.display='none';
-  if(!email||!pwd){errEl.textContent='Por favor completa email y contraseña.';errEl.style.display='block';return;}
-
-  try {
-    const {data,error} = await SB.from('usuarios')
-      .select('*')
-      .eq('email',email)
-      .eq('active',true)
-      .single();
-
-    if(error||!data){
-      errEl.textContent='Email o contraseña incorrectos.';errEl.style.display='block';
-      document.getElementById('login-pwd').value='';return;
-    }
-    if(data.pwd_hash!==pwd){
-      errEl.textContent='Email o contraseña incorrectos.';errEl.style.display='block';
-      document.getElementById('login-pwd').value='';return;
-    }
-
-    // Login OK
-    DB.currentUser={id:data.id,name:data.name,role:data.role};
+window.doLogin=async function(){
+  const email=document.getElementById('login-email').value.trim().toLowerCase(),pwd=document.getElementById('login-pwd').value,errEl=document.getElementById('login-error');
+  errEl.style.display='none';if(!email||!pwd){errEl.textContent='Completa email y contraseña.';errEl.style.display='block';return;}
+  try{
+    const {data:auth,error}=await SB.auth.signInWithPassword({email,password:pwd});
+    document.getElementById('login-pwd').value='';
+    if(error||!auth?.user){errEl.textContent='Credenciales incorrectas o cuenta no habilitada.';errEl.style.display='block';return;}
+    const {data:perfil,error:pe}=await SB.from('usuarios').select('id,name,email,role,active,auth_user_id').eq('auth_user_id',auth.user.id).eq('active',true).maybeSingle();
+    if(pe||!perfil){await SB.auth.signOut();errEl.textContent='Cuenta no autorizada. Contacta al administrador.';errEl.style.display='block';return;}
+    DB.currentUser={id:perfil.id,name:perfil.name,role:perfil.role};
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('login-email').value='';
-    document.getElementById('login-pwd').value='';
-    errEl.style.display='none';
-    updateUserUI();
-    applyRoleUI();
-    fillAllDropdowns();
-    await loadAllData();
-    goPage('dashboard',document.querySelector('.na.active'));
-  } catch(e){
-    errEl.textContent='Error de conexión: '+e.message;errEl.style.display='block';
-  }
+    updateUserUI();applyRoleUI();
+    await loadAllData();goPage('dashboard',document.querySelector('.na.active'));
+  }catch(e){await SB.auth.signOut();errEl.textContent='No se pudo iniciar sesión.';errEl.style.display='block';}
+}
 };
 
 // Cambiar contraseña en Supabase
-window.saveChgPwd = async function(){
-  let actual  = document.getElementById('cp-actual').value;
-  let nueva   = document.getElementById('cp-nueva').value;
-  let confirm2= document.getElementById('cp-confirm').value;
-  let msg     = document.getElementById('cp-msg');
-  msg.innerHTML='';
-  if(!actual||!nueva||!confirm2){msg.innerHTML='<div class="alt alt-w">Completa todos los campos.</div>';return;}
-  if(nueva.length<6){msg.innerHTML='<div class="alt alt-w">Mínimo 6 caracteres.</div>';return;}
-  if(nueva!==confirm2){msg.innerHTML='<div class="alt alt-w">Las contraseñas no coinciden.</div>';return;}
-
-  const {data:user,error:ue}=await SB.from('usuarios').select('pwd_hash').eq('id',DB.currentUser.id).single();
-  if(ue||!user||user.pwd_hash!==actual){msg.innerHTML='<div class="alt alt-d">Contraseña actual incorrecta.</div>';return;}
-
-  const {error}=await SB.from('usuarios').update({pwd_hash:nueva}).eq('id',DB.currentUser.id);
-  if(error){msg.innerHTML='<div class="alt alt-d">Error: '+error.message+'</div>';return;}
-  msg.innerHTML='<div class="alt alt-s">Contraseña actualizada.</div>';
-  setTimeout(()=>closeM('m-chgpwd'),1400);
+window.saveChgPwd=async function(){
+  const actual=document.getElementById('cp-actual').value,nueva=document.getElementById('cp-nueva').value,confirmada=document.getElementById('cp-confirm').value,msg=document.getElementById('cp-msg');
+  msg.textContent='';
+  if(!actual||!nueva||!confirmada){msg.textContent='Completa todos los campos.';return;}
+  if(nueva.length<12||nueva!==confirmada){msg.textContent='La nueva contraseña debe tener 12 caracteres como mínimo y coincidir con la confirmación.';return;}
+  const {data}=await SB.auth.getUser();if(!data?.user?.email){msg.textContent='Sesión inválida.';return;}
+  const {error:verify}=await SB.auth.signInWithPassword({email:data.user.email,password:actual});
+  if(verify){msg.textContent='Contraseña actual incorrecta.';return;}
+  const {error}=await SB.auth.updateUser({password:nueva});
+  if(error){msg.textContent='No se pudo actualizar la contraseña.';return;}
+  resetChgPwd();closeM('m-chgpwd');toast('Contraseña cambiada con Supabase Auth.','s');
+}
 };
 
+window.doLogout=async function(){
+  if(!confirm('¿Cerrar sesión?'))return;
+  await SB.auth.signOut();
+  DB.currentUser={id:null,name:'',role:''};DB.employees=[];DB.projects=[];DB.assignments=[];DB.users=[];
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-email').value='';
+  document.getElementById('login-pwd').value='';
+  document.getElementById('login-error').style.display='none';
+};
 // ── CARGA INICIAL DE TODOS LOS DATOS ─────────────────────────────────────────
 async function loadAllData(){
   const [emps,proys,asigs,usrs,mst] = await Promise.all([
-    SB.from('empleados').select('*').order('apellidos'),
+    SB.from(isAdmin()?'empleados':'empleados_directorio').select('*').order('apellidos'),
     SB.from('proyectos').select('*').order('codigo'),
     SB.from('asignaciones').select('*'),
-    SB.from('usuarios').select('*').order('name'),
+    isAdmin()?SB.from('usuarios').select('id,name,email,role,active,created,auth_user_id').order('name'):Promise.resolve({data:[],error:null}),
     SB.from('maestras').select('*'),
   ]);
 
@@ -3556,7 +3540,7 @@ function sbToEmp(r){
     especialidad:r.especialidad||'',cargo:r.cargo||'',area:r.area||'',
     tipo_contrato:r.tipo_contrato||'',fecha_ingreso:r.fecha_ingreso||'',
     fecha_fin_contrato:r.fecha_fin_contrato||'',salario:r.salario||null,
-    estado:r.estado||'Activo',observaciones:r.observaciones||'',historial:r.historial||[]};
+    estado:r.estado||'Activo',observaciones:r.observaciones||'',historial:r.historial||[],historial_contratos:r.historial_contratos||[]};
 }
 function sbToProy(r){
   return{id:r.id,codigo:r.codigo||'',nombre:r.nombre||'',cliente:r.cliente||'',
@@ -3841,36 +3825,15 @@ window.cesarEmpleado = async function(empId){
 };
 
 // ── CRUD USUARIOS ─────────────────────────────────────────────────────────────
-window.saveUsr = async function(){
-  let name=document.getElementById('u-nom').value.trim();
-  let email=document.getElementById('u-email').value.trim().toLowerCase();
-  let pwd=document.getElementById('u-pwd').value;
-  let role=document.getElementById('u-rol').value;
-  if(!name||!email){toast('Nombre y email son requeridos.','w');return;}
-  if(!DB.editUsrId&&!pwd){toast('La contraseña es requerida para nuevos usuarios.','w');return;}
-  if(pwd&&pwd.length<6){toast('Mínimo 6 caracteres.','w');return;}
-
-  let payload={name,email,role};
-  if(pwd)payload.pwd_hash=pwd;
-  if(!DB.editUsrId)payload.active=true;
-
-  let isNew=!DB.editUsrId;
-  let res;
-  if(isNew){
-    let dup=await SB.from('usuarios').select('id').eq('email',email).single();
-    if(!dup.error&&dup.data){toast('Ya existe un usuario con ese email.','w');return;}
-    res=await SB.from('usuarios').insert([payload]).select().single();
-  } else {
-    res=await SB.from('usuarios').update(payload).eq('id',DB.editUsrId).select().single();
-  }
-  if(res.error){toast('Error: '+res.error.message,'d');return;}
-
-  if(isNew) DB.users.push(res.data);
-  else { let i=DB.users.findIndex(u=>u.id===DB.editUsrId); if(i>=0)DB.users[i]=res.data; }
-
-  closeM('m-usr');
-  toast(isNew?'✓ Usuario creado':'✓ Usuario actualizado');
-  renderUsuarios();
+window.saveUsr=async function(){
+  if(!isAdmin())return;
+  const u=DB.users.find(x=>x.id===DB.editUsrId),name=document.getElementById('u-nom').value.trim(),role=document.getElementById('u-rol').value;
+  if(!u){toast('Crear usuarios en Supabase Auth; vincular auth_user_id.','w');return;}
+  if(!name||!['admin','viewer'].includes(role)){toast('Nombre o rol inválido.','w');return;}
+  const {data,error}=await SB.from('usuarios').update({name,role}).eq('id',u.id).select('id,name,email,role,active,created,auth_user_id').single();
+  if(error){toast('Error: '+error.message,'d');return;}
+  Object.assign(u,data);closeM('m-usr');renderUsuarios();toast('Perfil actualizado.','s');
+}
 };
 
 window.toggleUsr = async function(uid){
@@ -3916,67 +3879,10 @@ window.moveMaestraItem=function(key,idx,dir){
 };
 
 // ── IMPORTAR desde Excel → Supabase ──────────────────────────────────────────
-window.processImport = async function(){
-  if(!pendingRows.length)return;
-  let ins=0,upd=0,errs=[];
-
-  if(importMode==='empleados'){
-    for(let [i,r] of pendingRows.entries()){
-      if(!r.nombres){errs.push('Fila '+(i+2)+': sin nombres');continue;}
-      let cod=r.codigo||('EMP_'+(i+1));
-      let payload={codigo:cod,nombres:r.nombres,apellidos:r.apellidos||'',dni:r.dni||'',
-        email:r.email||'',telefono:r.telefono||'',profesion:r.profesion||'',
-        especialidad:r.especialidad||'',cargo:r.cargo||'',area:r.area||'',
-        tipo_contrato:r.tipo_contrato||'',fecha_ingreso:parseDate(r.fecha_ingreso)||null,
-        fecha_fin_contrato:isIndefiniteContract(r.tipo_contrato)?null:(parseDate(r.fecha_fin_contrato)||null),
-        salario:parseFloat(r.salario)||null,estado:r.estado||'Activo',observaciones:r.observaciones||''};
-      // Check existing
-      let ex=DB.employees.find(e=>e.codigo===cod);
-      if(ex){
-        let {error}=await SB.from('empleados').update(payload).eq('id',ex.id);
-        if(error)errs.push('Fila '+(i+2)+': '+error.message);else{Object.assign(ex,payload);upd++;}
-      } else {
-        let {data,error}=await SB.from('empleados').insert([payload]).select().single();
-        if(error)errs.push('Fila '+(i+2)+': '+error.message);else{DB.employees.push(sbToEmp(data));ins++;}
-      }
-    }
-  } else if(importMode==='proyectos'){
-    for(let [i,r] of pendingRows.entries()){
-      if(!r.nombre){errs.push('Fila '+(i+2)+': sin nombre');continue;}
-      let cod=r.codigo||('PRY-'+(DB.nextProyId+i));
-      let payload={codigo:cod,nombre:r.nombre,cliente:r.cliente||'',sector:r.sector||'',
-        tipo:r.tipo||'',estado:r.estado||'Formulacion',
-        fecha_inicio:parseDate(r.fecha_inicio)||null,fecha_fin:parseDate(r.fecha_fin)||null,
-        monto:parseFloat(r.monto)||null,recursos_req:parseInt(r.recursos_req)||0,
-        ubicacion:r.ubicacion||'',gerente:r.gerente||'',descripcion:r.descripcion||''};
-      let ex=DB.projects.find(p=>p.codigo===cod);
-      if(ex){
-        let {error}=await SB.from('proyectos').update(payload).eq('id',ex.id);
-        if(error)errs.push('Fila '+(i+2)+': '+error.message);else{Object.assign(ex,payload);upd++;}
-      } else {
-        let {data,error}=await SB.from('proyectos').insert([payload]).select().single();
-        if(error)errs.push('Fila '+(i+2)+': '+error.message);else{DB.projects.push(sbToProy(data));ins++;}
-      }
-    }
-  } else if(importMode==='asignaciones'){
-    for(let [i,r] of pendingRows.entries()){
-      let proy=DB.projects.find(p=>p.codigo===(r.codigo_proyecto||''));
-      let emp=DB.employees.find(e=>e.codigo===(r.codigo_empleado||''));
-      if(!proy){errs.push('Fila '+(i+2)+': proyecto "'+r.codigo_proyecto+'" no encontrado');continue;}
-      if(!emp){errs.push('Fila '+(i+2)+': empleado "'+r.codigo_empleado+'" no encontrado');continue;}
-      let pct=parseInt(r.pct)||100;
-      let payload={proyecto_id:proy.id,empleado_id:emp.id,puesto:r.puesto||'Sin especificar',pct,
-        fecha_ini:parseDate(r.fecha_inicio)||null,fecha_fin:parseDate(r.fecha_fin)||null,obs:r.observaciones||''};
-      let {data,error}=await SB.from('asignaciones').insert([payload]).select().single();
-      if(error)errs.push('Fila '+(i+2)+': '+error.message);else{DB.assignments.push(sbToAsig(data));ins++;}
-    }
-  }
-
-  let msg=importMode+': '+ins+' nuevos, '+upd+' actualizados.'+(errs.length?' '+errs.length+' errores.':'');
-  showIM(msg,errs.length?'alt-w':'alt-s');
-  errs.slice(0,3).forEach(e=>{let el=document.getElementById('import-msg');if(el){let d=document.createElement('div');d.className='alt alt-w';d.style.marginTop='4px';d.textContent=e;el.appendChild(d);}});
-  clearImport();
-  renderDashboard();
+// Importación heredada no es transaccional ni idempotente: bloqueada hasta motor validado.
+window.processImport=async function(){
+  showIM('Importación de producción bloqueada. Usa la conciliación aprobada y el ejecutor transaccional del servidor. No se escribieron datos.','alt-w');
+}
 };
 
 // ── INICIO: esperar DOM y cargar datos ────────────────────────────────────────

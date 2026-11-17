@@ -1493,6 +1493,8 @@ function openEmpModal(id){
   if(id){
     let e=DB.employees.find(x=>x.id===id);
     document.getElementById('m-emp-t').textContent=`Editar — ${e.apellidos}, ${e.nombres}`;
+    // El código es inmutable durante la edición ordinaria para conservar trazabilidad.
+    document.getElementById('f-cod').readOnly=true;
     // Set text fields
   ['cod','dni','nom','ape','email','tel','esp'].forEach(k=>document.getElementById('f-'+k).value=e[k==='cod'?'codigo':k==='nom'?'nombres':k==='ape'?'apellidos':k==='tel'?'telefono':k==='esp'?'especialidad':k]||'');
   // Set select fields after fillAllDropdowns
@@ -1513,12 +1515,18 @@ function openEmpModal(id){
     document.getElementById('f-obs').value=e.observaciones||'';
   } else {
     document.getElementById('m-emp-t').textContent='Nuevo Empleado';
+    document.getElementById('f-cod').readOnly=true;
     ['cod','dni','nom','ape','email','tel','esp','sal','obs','ing','fin'].forEach(k=>{let el=document.getElementById('f-'+k);if(el)el.value='';});
     setTimeout(()=>{['f-prof','f-cargo','f-area','f-est','f-tipo'].forEach(id=>{let el=document.getElementById(id);if(el)el.value='';});},10);
     document.getElementById('f-est').value='Activo';
     document.getElementById('f-tipo').value='';
     syncContractEndField();
-    document.getElementById('f-cod').value='EMP'+String(DB.nextEmpId).padStart(3,'0');
+    // El código no es el ID interno: continuar la secuencia EMP-0001 sin reutilizar números.
+    const maxCodigo=DB.employees.reduce((max,e)=>{
+      const match=/^EMP-(\\d{4,})$/.exec(String(e.codigo||''));
+      return match?Math.max(max,Number(match[1])):max;
+    },0);
+    document.getElementById('f-cod').value='EMP-'+String(maxCodigo+1).padStart(4,'0');
   }
   fillAllDropdowns();
   openM('m-emp');
@@ -3596,6 +3604,12 @@ window.saveEmp = async function(){
   const dniUnico=payload.dni?.trim();
   if(dniUnico && DB.employees.some(e=>e.id!==DB.editEmpId&&String(e.dni||'').trim()===dniUnico)){
     toast('El DNI ya está registrado. Revisa la ficha existente antes de crear un duplicado.','w');return;
+  }
+  if(DB.editEmpId){
+    const previo=DB.employees.find(e=>e.id===DB.editEmpId);
+    if(previo && cod!==previo.codigo){toast('No se permite modificar el código identificador de un empleado existente.','w');return;}
+  } else if(!/^EMP-\\d{4,}$/.test(cod)){
+    toast('El código de empleado debe tener el formato EMP-0001.','w');return;
   }
   let isNew=!DB.editEmpId;
   let res;

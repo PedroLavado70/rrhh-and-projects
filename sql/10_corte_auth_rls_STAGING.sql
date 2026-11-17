@@ -15,8 +15,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS sigral_usuarios_auth_user_id_uidx ON public.us
 
 DO $$
 BEGIN
-  IF EXISTS(SELECT 1 FROM public.usuarios WHERE active IS TRUE AND auth_user_id IS NULL) THEN
-    RAISE EXCEPTION 'MIGRACION DETENIDA: hay usuarios activos sin auth_user_id. Vincule Supabase Auth primero.';
+  -- Para la primera etapa de uso individual se exige vinculación del administrador.
+  -- Los perfiles viewer sin Auth permanecerán sin acceso, sin modificar ni borrar registros.
+  IF EXISTS(SELECT 1 FROM public.usuarios WHERE active IS TRUE AND role='admin' AND auth_user_id IS NULL) THEN
+    RAISE EXCEPTION 'MIGRACION DETENIDA: el administrador activo no está vinculado a Supabase Auth.';
   END IF;
   IF EXISTS(SELECT 1 FROM public.usuarios WHERE active IS TRUE AND role NOT IN ('admin','viewer')) THEN
     RAISE EXCEPTION 'MIGRACION DETENIDA: hay roles diferentes de admin/viewer; revisar antes del corte.';

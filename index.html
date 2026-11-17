@@ -3783,7 +3783,6 @@ window.saveUsr=async function(){
   const {data,error}=await SB.from('usuarios').update({name,role}).eq('id',u.id).select('id,name,email,role,active,created,auth_user_id').single();
   if(error){toast('Error: '+error.message,'d');return;}
   Object.assign(u,data);closeM('m-usr');renderUsuarios();toast('Perfil actualizado.','s');
-}
 };
 
 window.toggleUsr = async function(uid){

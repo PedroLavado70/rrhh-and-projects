@@ -3720,17 +3720,18 @@ window.saveProy = async function(){
 };
 
 window.delProy = async function(){
-  if(!confirm('¿Eliminar este proyecto y sus asignaciones?'))return;
-  await SB.from('asignaciones').delete().eq('proyecto_id',DB.editProyId);
-  const {error}=await SB.from('proyectos').delete().eq('id',DB.editProyId);
-  if(error){toast('Error: '+error.message,'d');return;}
-  DB.projects=DB.projects.filter(p=>p.id!==DB.editProyId);
-  DB.assignments=DB.assignments.filter(a=>a.proyecto_id!==DB.editProyId);
-  closeM('m-proy');
-  toast('Proyecto eliminado','w');
-  renderProyectos();
-  window.sigralBackup?.saved(DB,'eliminacion_proyecto');
-};
+  const id=DB.editProyId;
+  const p=DB.projects.find(x=>x.id===id);
+  if(!p)return;
+  if(!confirm('¿Marcar el proyecto como CONCLUIDO?\nSe conservarán todas sus asignaciones, fechas e historial.'))return;
+  const {data,error}=await SB.from('proyectos').update({estado:'Concluido'}).eq('id',id).select().single();
+  if(error){toast('No se pudo concluir el proyecto: '+error.message,'d');return;}
+  const i=DB.projects.findIndex(x=>x.id===id);
+  if(i>=0)DB.projects[i]=sbToProy(data);
+  closeM('m-proy');refreshActive();
+  toast('Proyecto concluido. Historial y asignaciones conservados.','s');
+  window.sigralBackup?.saved(DB,'cierre_proyecto');
+}
 
 // ── CRUD ASIGNACIONES ─────────────────────────────────────────────────────────
 window.saveAsig = async function(){
@@ -3772,15 +3773,20 @@ window.saveAsig = async function(){
 };
 
 window.delAsig = async function(){
-  if(!confirm('¿Eliminar esta asignación?'))return;
-  const {error}=await SB.from('asignaciones').delete().eq('id',DB.editAsigId);
-  if(error){toast('Error: '+error.message,'d');return;}
-  DB.assignments=DB.assignments.filter(a=>a.id!==DB.editAsigId);
-  closeM('m-asig');
-  toast('Asignación eliminada','w');
-  renderAsignacion();
-  window.sigralBackup?.saved(DB,'eliminacion_asignacion');
-};
+  const id=DB.editAsigId,a=DB.assignments.find(x=>x.id===id);
+  if(!a)return;
+  const hoy=fd(new Date());
+  if(a.fecha_ini && a.fecha_ini>hoy){toast('La asignación aún no empieza; corrige las fechas en lugar de cerrar.','w');return;}
+  if(a.fecha_fin && a.fecha_fin<hoy){toast('La asignación ya terminó; se conserva para trazabilidad.','w');return;}
+  if(!confirm('¿Finalizar esta asignación con fecha de hoy?\nSe mantendrá su historial.'))return;
+  const {data,error}=await SB.from('asignaciones').update({fecha_fin:hoy}).eq('id',id).select().single();
+  if(error){toast('Error al cerrar asignación: '+error.message,'d');return;}
+  const i=DB.assignments.findIndex(x=>x.id===id);
+  if(i>=0)DB.assignments[i]=sbToAsig(data);
+  closeM('m-asig');refreshActive();
+  toast('Asignación finalizada. Registro conservado.','s');
+  window.sigralBackup?.saved(DB,'cierre_asignacion');
+}
 
 // ── CESAR EMPLEADO (Supabase override) ───────────────────────────────────────
 window.cesarEmpleado = async function(empId){

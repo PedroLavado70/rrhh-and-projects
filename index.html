@@ -3441,7 +3441,6 @@ window.doLogin=async function(){
     updateUserUI();applyRoleUI();
     goPage('dashboard',document.querySelector('.na.active'));
   }catch(e){await SB.auth.signOut();DB.currentUser={id:null,name:'',role:''};DB.employees=[];DB.projects=[];DB.assignments=[];errEl.textContent='No se pudo iniciar sesión ni obtener datos autorizados.';errEl.style.display='block';}
-}
 };
 
 // Cambiar contraseña en Supabase
@@ -3456,7 +3455,6 @@ window.saveChgPwd=async function(){
   const {error}=await SB.auth.updateUser({password:nueva});
   if(error){msg.textContent='No se pudo actualizar la contraseña.';return;}
   resetChgPwd();closeM('m-chgpwd');toast('Contraseña cambiada con Supabase Auth.','s');
-}
 };
 
 window.doLogout=async function(){

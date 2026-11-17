@@ -3462,8 +3462,30 @@ window.doLogin=async function(){
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('login-email').value='';
     updateUserUI();applyRoleUI();
-    goPage('dashboard',document.querySelector('.na.active'));
-  }catch(e){await SB.auth.signOut();DB.currentUser={id:null,name:'',role:''};DB.employees=[];DB.projects=[];DB.assignments=[];errEl.textContent='No se pudo iniciar sesión ni obtener datos autorizados.';errEl.style.display='block';}
+    try { goPage('dashboard',document.querySelector('.na.active')); }
+    catch (uiError) {
+      console.error('SIGRAL: dashboard navigation failed',uiError);
+      window.__sigralDashboardError=true;
+    }
+    if(window.__sigralDashboardError){
+      const banner=document.createElement('div');
+      banner.textContent='Inicio de sesión correcto. El dashboard presenta un error de visualización; puedes continuar utilizando los módulos del menú.';
+      banner.setAttribute('role','alert');
+      banner.style.cssText='background:#78350f;color:#fff;padding:10px 14px;font-size:13px;';
+      document.getElementById('main-scroll')?.prepend(banner);
+    }
+  }catch(e){
+    console.error('SIGRAL: authentication or data initialization error',e);
+    try{await SB.auth.signOut()}catch(_ignored){}
+    DB.currentUser={id:null,name:'',role:''};DB.employees=[];DB.projects=[];DB.assignments=[];
+    const msg=String(e?.message||'').toLowerCase();
+    errEl.textContent=msg.includes('fetch')||msg.includes('network')
+      ?'No se pudo conectar con Supabase. Verifica tu conexión e intenta nuevamente.'
+      :msg.includes('supabase')||msg.includes('autorizada')
+        ?'La contraseña se aceptó, pero no se pudieron cargar los registros autorizados. Contacta al administrador.'
+        :'No se pudo completar la carga de la aplicación. Intenta actualizar la página (Ctrl + F5).';
+    errEl.style.display='block';
+  }
 };
 
 // Cambiar contraseña en Supabase
@@ -3510,7 +3532,12 @@ async function loadAllData(){
   }
 
   fillAllDropdowns();
-  renderDashboard();
+  // A visual/dashboard failure must not be treated as an invalid password.
+  try { renderDashboard(); }
+  catch (uiError) {
+    console.error('SIGRAL: dashboard rendering failed', uiError);
+    window.__sigralDashboardError = true;
+  }
 }
 
 // ── MAPPERS: Supabase → DB local ─────────────────────────────────────────────
